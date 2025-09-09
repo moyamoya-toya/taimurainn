@@ -738,7 +738,7 @@ select.form-control {
 }
 
 /* END PERPLEXITY DESIGN SYSTEM */
-/* Detective Novel Timetable - Stylish Dark Theme */
+/* Detective Novel Timetable - Stylish Dark Theme with Sticky Headers */
 
 * {
   box-sizing: border-box;
@@ -819,45 +819,10 @@ body::before {
   padding: var(--space-lg);
 }
 
-/* Header Styles */
-.app-header {
-  text-align: center;
-  margin-bottom: var(--space-2xl);
-  padding: var(--space-xl) 0;
-}
-
-.header-content {
-  display: inline-block;
-  padding: var(--space-lg) var(--space-xl);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-xl);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--shadow-medium);
-}
-
-.app-title {
-  font-family: var(--font-display);
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--color-accent-gold);
-  margin-bottom: var(--space-sm);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-  letter-spacing: -0.02em;
-}
-
-.app-subtitle {
-  font-size: 1rem;
-  color: var(--color-text-secondary);
-  font-weight: 300;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 /* Control Panel */
 .control-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
 }
@@ -897,18 +862,10 @@ body::before {
   gap: var(--space-lg);
 }
 
-.time-controls-row {
-  display: flex;
-  gap: var(--space-lg);
-  flex-wrap: wrap;
-}
-
 .form-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  flex: 1;
-  min-width: 140px;
 }
 
 .form-label {
@@ -917,81 +874,6 @@ body::before {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-/* Insert Position Controls */
-.insert-position-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.insert-position-label {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.radio-group {
-  display: flex;
-  gap: var(--space-lg);
-  flex-wrap: wrap;
-}
-
-.radio-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  cursor: pointer;
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  transition: var(--transition-fast);
-}
-
-.radio-label:hover {
-  background: rgba(255, 215, 0, 0.1);
-}
-
-.radio-label input[type="radio"] {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--color-border-subtle);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  position: relative;
-}
-
-.radio-label input[type="radio"]:hover {
-  border-color: var(--color-accent-gold);
-  background: rgba(255, 215, 0, 0.1);
-}
-
-.radio-label input[type="radio"]:checked {
-  background: var(--color-accent-gold);
-  border-color: var(--color-accent-gold);
-}
-
-.radio-label input[type="radio"]:checked::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-primary-dark);
-}
-
-.radio-text {
-  font-size: 0.875rem;
-  color: var(--color-text-light);
-  font-weight: 500;
 }
 
 /* Button Styles */
@@ -1081,7 +963,7 @@ body::before {
 /* Form Controls */
 .form-control {
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-secondary-dark);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   color: var(--color-text-light);
@@ -1097,26 +979,24 @@ body::before {
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Select dropdown specific styling */
-select.form-control {
-  background: var(--color-secondary-dark);
-  color: var(--color-text-light);
-  border: 1px solid var(--color-border-subtle);
+.time-select {
+  min-width: 120px;
   cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffd700' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-sm) center;
+  background-size: 16px;
+  padding-right: calc(var(--space-md) + 20px);
 }
 
-select.form-control option {
+.time-select option {
   background: var(--color-secondary-dark);
   color: var(--color-text-light);
-  border: none;
   padding: var(--space-sm);
 }
 
-.time-select {
-  min-width: 120px;
-}
-
-/* Timetable Styles */
+/* Timetable Styles with Sticky Headers */
 .timetable-container {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--color-border-subtle);
@@ -1127,7 +1007,10 @@ select.form-control option {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  position: relative;
+  overflow: auto;
+  max-height: 70vh;
+  max-width: 100%;
   border-radius: var(--radius-lg);
   box-shadow: inset 0 0 0 1px var(--color-border-subtle);
 }
@@ -1139,8 +1022,29 @@ select.form-control option {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.table-header {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 170, 0, 0.1));
+/* Sticky Header Row */
+.timetable thead tr {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(135deg, var(--color-secondary-dark), var(--color-primary-dark));
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Sticky Time Column */
+.time-header,
+.time-cell {
+  position: sticky;
+  left: 0;
+  background: linear-gradient(135deg, var(--color-secondary-dark), var(--color-primary-dark));
+  z-index: 2;
+  border-right: 2px solid var(--color-border-strong);
+}
+
+/* Intersection cell (top-left) has highest z-index */
+.time-header {
+  z-index: 3;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 170, 0, 0.15));
 }
 
 .time-header,
@@ -1155,8 +1059,16 @@ select.form-control option {
 }
 
 .time-header {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 170, 0, 0.15));
   min-width: 120px;
+  width: 120px;
+}
+
+/* Responsive Character Headers */
+.character-header {
+  width: auto;
+  min-width: 120px;
+  max-width: 200px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 170, 0, 0.1));
 }
 
 .character-cell {
@@ -1166,7 +1078,8 @@ select.form-control option {
   align-items: center;
 }
 
-.character-input {
+/* Responsive Character Name Input */
+.character-name-input {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
@@ -1175,11 +1088,13 @@ select.form-control option {
   font-family: var(--font-body);
   font-size: 0.875rem;
   text-align: center;
-  min-width: 150px;
+  width: 100%;
+  min-width: 80px;
+  box-sizing: border-box;
   transition: var(--transition-fast);
 }
 
-.character-input:focus {
+.character-name-input:focus {
   outline: none;
   border-color: var(--color-accent-gold);
   box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2);
@@ -1205,9 +1120,9 @@ select.form-control option {
 .time-cell {
   padding: var(--space-md);
   background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 170, 0, 0.05));
-  border-right: 1px solid var(--color-border-subtle);
   border-bottom: 1px solid var(--color-border-subtle);
   min-width: 120px;
+  width: 120px;
 }
 
 .time-cell-content {
@@ -1224,21 +1139,29 @@ select.form-control option {
   color: var(--color-accent-gold);
 }
 
+/* Responsive Activity Cells */
 .activity-cell {
   padding: var(--space-md);
   border-right: 1px solid var(--color-border-subtle);
   border-bottom: 1px solid var(--color-border-subtle);
   min-height: 60px;
-  min-width: 150px;
+  width: auto;
+  min-width: 120px;
+  max-width: 200px;
   vertical-align: top;
   position: relative;
   transition: var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .activity-cell:focus {
   outline: none;
   background: rgba(255, 215, 0, 0.1);
   box-shadow: inset 0 0 0 2px rgba(255, 215, 0, 0.3);
+  white-space: normal;
+  overflow: visible;
 }
 
 .activity-cell:empty::before {
@@ -1280,6 +1203,67 @@ input[type="checkbox"]:checked::after {
   color: var(--color-primary-dark);
   font-size: 12px;
   font-weight: bold;
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: var(--color-secondary-dark);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-strong);
+  max-width: 400px;
+  width: 90%;
+  position: relative;
+  z-index: 1001;
+}
+
+.modal-header {
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.modal-header h3 {
+  color: var(--color-accent-gold);
+  font-family: var(--font-display);
+}
+
+.modal-body {
+  padding: var(--space-lg);
+  color: var(--color-text-light);
+}
+
+.modal-footer {
+  padding: var(--space-lg);
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
 }
 
 /* Loading Overlay */
@@ -1326,10 +1310,6 @@ input[type="checkbox"]:checked::after {
     padding: var(--space-md);
   }
   
-  .app-title {
-    font-size: 2rem;
-  }
-  
   .control-panel {
     grid-template-columns: 1fr;
   }
@@ -1346,15 +1326,6 @@ input[type="checkbox"]:checked::after {
     gap: var(--space-md);
   }
   
-  .time-controls-row {
-    flex-direction: column;
-  }
-  
-  .radio-group {
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-  
   .table-wrapper {
     font-size: 0.875rem;
   }
@@ -1365,16 +1336,18 @@ input[type="checkbox"]:checked::after {
     min-width: 100px;
   }
   
-  .character-input {
-    min-width: 120px;
+  .time-header,
+  .time-cell {
+    min-width: 100px;
+    width: 100px;
+  }
+  
+  .character-name-input {
+    min-width: 60px;
   }
 }
 
 @media (max-width: 480px) {
-  .app-title {
-    font-size: 1.75rem;
-  }
-  
   .control-group {
     padding: var(--space-md);
   }
@@ -1389,8 +1362,14 @@ input[type="checkbox"]:checked::after {
     padding: var(--space-xs);
   }
   
-  .character-input {
-    min-width: 100px;
+  .time-header,
+  .time-cell {
+    min-width: 80px;
+    width: 80px;
+  }
+  
+  .character-name-input {
+    min-width: 50px;
     font-size: 0.8rem;
   }
 }
@@ -1424,4 +1403,17 @@ input[type="checkbox"]:checked::after {
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+/* Ripple effect */
+@keyframes ripple {
+  to {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.btn {
+  position: relative;
+  overflow: hidden;
 }

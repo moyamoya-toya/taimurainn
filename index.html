@@ -11,19 +11,10 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Header Section -->
-        <header class="app-header">
-            <div class="header-content">
-                <h1 class="app-title">推理小説 タイムテーブル</h1>
-                <p class="app-subtitle">Detective Novel Timeline Organizer</p>
-            </div>
-        </header>
-
         <!-- Control Panel -->
         <div class="control-panel">
             <!-- Character Controls -->
             <div class="control-group">
-                <h3 class="control-title">登場人物管理</h3>
                 <div class="button-group">
                     <button id="addButton" class="btn btn--primary">
                         <span class="btn-icon">+</span>
@@ -38,40 +29,22 @@
 
             <!-- Time Controls -->
             <div class="control-group">
-                <h3 class="control-title">時間管理</h3>
                 <div class="time-controls">
-                    <div class="time-controls-row">
-                        <div class="form-group">
-                            <label for="time-interval" class="form-label">時間間隔:</label>
-                            <select id="time-interval" class="form-control time-select">
-                                <option value="5">5分</option>
-                                <option value="10">10分</option>
-                                <option value="30">30分</option>
-                                <option value="60">1時間</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="insert-time-select" class="form-label">🕐 挿入位置:</label>
-                            <select id="insert-time-select" class="form-control time-select">
-                                <option value="last">最後に追加</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label for="time-interval" class="form-label">時間間隔:</label>
+                        <select id="time-interval" class="form-control time-select">
+                            <option value="5">5分</option>
+                            <option value="10">10分</option>
+                            <option value="30">30分</option>
+                            <option value="60">1時間</option>
+                        </select>
                     </div>
-                    
-                    <div class="insert-position-group">
-                        <span class="insert-position-label">挿入方法:</span>
-                        <div class="radio-group">
-                            <label class="radio-label">
-                                <input type="radio" name="insertPosition" value="after" checked>
-                                <span class="radio-text">後に挿入</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="insertPosition" value="before">
-                                <span class="radio-text">前に挿入</span>
-                            </label>
-                        </div>
+                    <div class="form-group">
+                        <label for="insert-before-time" class="form-label">挿入位置:</label>
+                        <select id="insert-before-time" class="form-control time-select">
+                            <option value="">最後に追加</option>
+                        </select>
                     </div>
-                    
                     <div class="button-group">
                         <button id="addTimeButton" class="btn btn--accent">
                             <span class="btn-icon">⏰</span>
@@ -84,6 +57,14 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Reset Control -->
+            <div class="control-group">
+                <button id="resetButton" class="btn btn--danger">
+                    <span class="btn-icon">🔄</span>
+                    データをリセット
+                </button>
+            </div>
         </div>
 
         <!-- Timetable Section -->
@@ -95,19 +76,19 @@
                             <th class="time-header">時間</th>
                             <th class="character-header">
                                 <div class="character-cell">
-                                    <input type="text" value="登場人物A" class="character-input">
+                                    <input type="text" value="登場人物A" class="character-name-input">
                                     <input type="checkbox" class="delete-checkbox">
                                 </div>
                             </th>
                             <th class="character-header">
                                 <div class="character-cell">
-                                    <input type="text" value="登場人物B" class="character-input">
+                                    <input type="text" value="登場人物B" class="character-name-input">
                                     <input type="checkbox" class="delete-checkbox">
                                 </div>
                             </th>
                             <th class="character-header">
                                 <div class="character-cell">
-                                    <input type="text" value="登場人物C" class="character-input">
+                                    <input type="text" value="登場人物C" class="character-name-input">
                                     <input type="checkbox" class="delete-checkbox">
                                 </div>
                             </th>
@@ -179,6 +160,23 @@
             <div class="loading-content">
                 <div class="loading-spinner"></div>
                 <p>処理中...</p>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal" class="modal hidden">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">確認</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="modalMessage">この操作を実行してもよろしいですか？</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="modalCancel" class="btn btn--secondary">キャンセル</button>
+                    <button id="modalConfirm" class="btn btn--danger">実行</button>
+                </div>
             </div>
         </div>
     </div>
