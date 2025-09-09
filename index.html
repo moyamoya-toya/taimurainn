@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>推理小説タイムテーブル</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <!-- Character Controls -->
+            <div class="control-group">
+                <div class="button-group">
+                    <button id="addButton" class="btn btn--primary">
+                        <span class="btn-icon">+</span>
+                        登場人物を追加
+                    </button>
+                    <button id="removeButton" class="btn btn--secondary">
+                        <span class="btn-icon">-</span>
+                        登場人物を削除
+                    </button>
+                </div>
+            </div>
+
+            <!-- Time Controls -->
+            <div class="control-group">
+                <div class="time-controls">
+                    <div class="form-group">
+                        <label for="time-interval" class="form-label">時間間隔:</label>
+                        <select id="time-interval" class="form-control time-select">
+                            <option value="5">5分</option>
+                            <option value="10">10分</option>
+                            <option value="30">30分</option>
+                            <option value="60">1時間</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="insert-before-time" class="form-label">挿入位置:</label>
+                        <select id="insert-before-time" class="form-control time-select">
+                            <option value="">最後に追加</option>
+                        </select>
+                    </div>
+                    <div class="button-group">
+                        <button id="addTimeButton" class="btn btn--accent">
+                            <span class="btn-icon">⏰</span>
+                            時間行を追加
+                        </button>
+                        <button id="removeTimeButton" class="btn btn--danger">
+                            <span class="btn-icon">🗑</span>
+                            時間行を削除
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reset Control -->
+            <div class="control-group">
+                <button id="resetButton" class="btn btn--danger">
+                    <span class="btn-icon">🔄</span>
+                    データをリセット
+                </button>
+            </div>
+        </div>
+
+        <!-- Timetable Section -->
+        <div class="timetable-container">
+            <div class="table-wrapper">
+                <table class="timetable">
+                    <thead>
+                        <tr class="table-header">
+                            <th class="time-header">時間</th>
+                            <th class="character-header">
+                                <div class="character-cell">
+                                    <input type="text" value="登場人物A" class="character-name-input">
+                                    <input type="checkbox" class="delete-checkbox">
+                                </div>
+                            </th>
+                            <th class="character-header">
+                                <div class="character-cell">
+                                    <input type="text" value="登場人物B" class="character-name-input">
+                                    <input type="checkbox" class="delete-checkbox">
+                                </div>
+                            </th>
+                            <th class="character-header">
+                                <div class="character-cell">
+                                    <input type="text" value="登場人物C" class="character-name-input">
+                                    <input type="checkbox" class="delete-checkbox">
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-body">
+                        <tr class="table-row">
+                            <td class="time-cell">
+                                <div class="time-cell-content">
+                                    <input type="checkbox" class="time-delete-checkbox">
+                                    <span class="time-display">08:00</span>
+                                </div>
+                            </td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                        </tr>
+                        <tr class="table-row">
+                            <td class="time-cell">
+                                <div class="time-cell-content">
+                                    <input type="checkbox" class="time-delete-checkbox">
+                                    <span class="time-display">09:00</span>
+                                </div>
+                            </td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                        </tr>
+                        <tr class="table-row">
+                            <td class="time-cell">
+                                <div class="time-cell-content">
+                                    <input type="checkbox" class="time-delete-checkbox">
+                                    <span class="time-display">10:00</span>
+                                </div>
+                            </td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                        </tr>
+                        <tr class="table-row">
+                            <td class="time-cell">
+                                <div class="time-cell-content">
+                                    <input type="checkbox" class="time-delete-checkbox">
+                                    <span class="time-display">11:00</span>
+                                </div>
+                            </td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                        </tr>
+                        <tr class="table-row">
+                            <td class="time-cell">
+                                <div class="time-cell-content">
+                                    <input type="checkbox" class="time-delete-checkbox">
+                                    <span class="time-display">12:00</span>
+                                </div>
+                            </td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p>処理中...</p>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal" class="modal hidden">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">確認</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="modalMessage">この操作を実行してもよろしいですか？</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="modalCancel" class="btn btn--secondary">キャンセル</button>
+                    <button id="modalConfirm" class="btn btn--danger">実行</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
