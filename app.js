@@ -1,318 +1,614 @@
-// Detective Novel Timetable - Enhanced JavaScript with Auto-save and Reset Functionality
+// Detective Novel Timetable - Enhanced with Auto-Save, Reset, and Memo functionality
+class DetectiveTimetableStorage {
+    constructor() {
+        // In-memory storage since localStorage is not available in sandbox
+        this.storage = {
+            characters: ["登場人物A", "登場人物B", "登場人物C"],
+            memos: ["", "", ""],
+            timeRows: ["08:00", "09:00", "10:00", "11:00", "12:00"],
+            cellData: {},
+            lastSaved: null
+        };
+    }
+
+    // Save data to in-memory storage
+    saveData(data) {
+        this.storage = { ...data, lastSaved: new Date().toISOString() };
+        return true;
+    }
+
+    // Load data from in-memory storage
+    loadData() {
+        return this.storage;
+    }
+
+    // Clear all data
+    clearData() {
+        this.storage = {
+            characters: ["登場人物A", "登場人物B", "登場人物C"],
+            memos: ["", "", ""],
+            timeRows: ["08:00", "09:00", "10:00", "11:00", "12:00"],
+            cellData: {},
+            lastSaved: null
+        };
+    }
+}
+
 class DetectiveTimetable {
     constructor() {
+        // 要素の初期化
+        this.lastSavedText = this.getOrCreateElement('lastSavedText', 'last-saved-text');
         this.loadingOverlay = document.getElementById('loadingOverlay');
         this.table = document.querySelector('.timetable');
-        this.headerRow = this.table.querySelector('thead tr');
+        this.nameRow = this.table.querySelector('.name-row');
+        this.memoRow = this.table.querySelector('.memo-row');
         this.tableBody = this.table.querySelector('tbody');
-        this.insertBeforeSelect = document.getElementById('insert-before-time');
-        this.confirmationModal = document.getElementById('confirmationModal');
-        this.storageKey = 'detectiveTimetableData';
-        
+        this.resetModal = document.getElementById('resetModal');
+        this.saveIndicator = document.getElementById('saveIndicator');
+
+        // Initialize storage
+        this.storage = new DetectiveTimetableStorage();
+
+        // Auto-save debounce timer
+        this.saveTimeout = null;
+
+        // イベント処理のバインド
+        this.handleMoveClick = this.handleMoveClick.bind(this);
+        this.handleInput = this.handleInput.bind(this);
+        this.handleFocus = this.handleFocus.bind(this);
+        this.handleBlur = this.handleBlur.bind(this);
+
         this.init();
     }
 
+    getOrCreateElement(id, className) {
+        let element = document.getElementById(id);
+        if (!element) {
+            element = document.createElement('div');
+            element.id = id;
+            element.className = className;
+            document.body.appendChild(element);
+        }
+        return element;
+    }
+
     init() {
-        this.loadFromStorage();
+        this.loadSavedData();
         this.setupEventListeners();
-        this.setupCharacterInputListeners();
+        this.setupResetModal();
         this.addInitialAnimations();
-        this.setupAutoSave();
-        // Initialize dropdown immediately after DOM is ready
-        setTimeout(() => {
-            this.updateInsertDropdown();
-        }, 100);
+        this.updateLastSavedIndicator();
+        this.setupMemoAutoResize();
+        this.updateTimeSelectOptions();
+        // 初期化後にプレースホルダーを削除
+        this.removeAllPlaceholders();
     }
 
-    // Load data from localStorage
-    loadFromStorage() {
-        try {
-            const savedData = localStorage.getItem(this.storageKey);
-            if (savedData) {
-                const data = JSON.parse(savedData);
-                this.restoreTableData(data);
-                console.log('Data loaded from localStorage');
-            }
-        } catch (error) {
-            console.error('Error loading from localStorage:', error);
+    // すべてのプレースホルダーを削除
+    removeAllPlaceholders() {
+        const activityCells = document.querySelectorAll('.activity-cell');
+        activityCells.forEach(cell => {
+            cell.removeAttribute('data-placeholder');
+        });
+    }
+
+    // シンプルなイベントリスナー設定
+    setupEventListeners() {
+        // 管理ボタン
+        this.setupManagementButtons();
+
+        // 統一されたイベント委譲
+        this.setupEventDelegation();
+
+        // ボタンのホバー効果
+        this.addButtonHoverEffects();
+    }
+
+    setupManagementButtons() {
+        const addButton = document.getElementById('addButton');
+        const removeButton = document.getElementById('removeButton');
+        const addTimeButton = document.getElementById('addTimeButton');
+        const removeTimeButton = document.getElementById('removeTimeButton');
+
+        if (addButton) {
+            addButton.addEventListener('click', () => {
+                this.showLoading();
+                setTimeout(() => this.addCharacter(), 300);
+            });
+        }
+
+        if (removeButton) {
+            removeButton.addEventListener('click', () => {
+                this.showLoading();
+                setTimeout(() => this.removeCharacters(), 300);
+            });
+        }
+
+        if (addTimeButton) {
+            addTimeButton.addEventListener('click', () => {
+                this.showLoading();
+                setTimeout(() => this.addTimeRows(), 300);
+            });
+        }
+
+        if (removeTimeButton) {
+            removeTimeButton.addEventListener('click', () => {
+                this.showLoading();
+                setTimeout(() => this.removeTimeRows(), 300);
+            });
         }
     }
 
-    // Save data to localStorage
-    saveToStorage() {
-        try {
-            const data = this.getTableData();
-            localStorage.setItem(this.storageKey, JSON.stringify(data));
-            console.log('Data saved to localStorage');
-        } catch (error) {
-            console.error('Error saving to localStorage:', error);
-        }
+    setupEventDelegation() {
+        // クリックイベント（移動ボタン用）
+        document.addEventListener('click', this.handleMoveClick);
+
+        // 入力イベント
+        document.addEventListener('input', this.handleInput);
+
+        // フォーカスイベント
+        document.addEventListener('focus', this.handleFocus, true);
+
+        // ブラーイベント
+        document.addEventListener('blur', this.handleBlur, true);
     }
 
-    // Get current table data
-    getTableData() {
-        const characters = [];
-        const times = [];
-        const activities = {};
-
-        // Get characters
-        const characterInputs = this.headerRow.querySelectorAll('.character-name-input');
-        characterInputs.forEach(input => {
-            characters.push(input.value.trim());
-        });
-
-        // Get times and activities
-        const rows = this.tableBody.querySelectorAll('tr');
-        rows.forEach(row => {
-            const timeDisplay = row.querySelector('.time-display');
-            if (timeDisplay) {
-                const time = timeDisplay.textContent.trim();
-                times.push(time);
-                
-                const activityCells = row.querySelectorAll('.activity-cell');
-                activities[time] = [];
-                activityCells.forEach(cell => {
-                    activities[time].push(cell.textContent.trim());
-                });
-            }
-        });
-
-        return { characters, times, activities };
-    }
-
-    // Restore table data
-    restoreTableData(data) {
-        if (!data || !data.characters || !data.times) return;
-
-        // Clear existing table
-        this.headerRow.innerHTML = '<th class="time-header">時間</th>';
-        this.tableBody.innerHTML = '';
-
-        // Restore characters
-        data.characters.forEach(character => {
-            this.addCharacterHeader(character);
-        });
-
-        // Restore times and activities
-        data.times.forEach(time => {
-            const activities = data.activities[time] || [];
-            this.addTimeRowWithData(time, activities);
-        });
-
-        // Setup listeners for restored elements
-        this.setupCharacterInputListeners();
-    }
-
-    // Add character header
-    addCharacterHeader(characterName) {
-        const newHeader = document.createElement('th');
-        newHeader.className = 'character-header';
-        newHeader.innerHTML = `
-            <div class="character-cell">
-                <input type="text" value="${characterName}" class="character-name-input">
-                <input type="checkbox" class="delete-checkbox">
-            </div>
-        `;
-        this.headerRow.appendChild(newHeader);
+    handleMoveClick(e) {
+        const target = e.target;
         
-        const newInput = newHeader.querySelector('.character-name-input');
-        this.addCharacterInputListener(newInput);
-    }
-
-    // Add time row with data
-    addTimeRowWithData(time, activities) {
-        const row = document.createElement('tr');
-        row.className = 'table-row';
-
-        // Time cell
-        const timeCell = document.createElement('td');
-        timeCell.className = 'time-cell';
-        timeCell.innerHTML = `
-            <div class="time-cell-content">
-                <input type="checkbox" class="time-delete-checkbox">
-                <span class="time-display">${time}</span>
-            </div>
-        `;
-        row.appendChild(timeCell);
-
-        // Activity cells
-        const characterCount = this.headerRow.children.length - 1;
-        for (let i = 0; i < characterCount; i++) {
-            const activityCell = document.createElement('td');
-            activityCell.className = 'activity-cell';
-            activityCell.contentEditable = 'true';
-            activityCell.setAttribute('data-placeholder', '活動を記入...');
-            activityCell.textContent = activities[i] || '';
-            row.appendChild(activityCell);
-            
-            this.addCellFocusEffects(activityCell);
+        if (target.classList.contains('move-left')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const columnIndex = this.getColumnIndex(target);
+            if (columnIndex !== -1) {
+                this.moveColumnLeft(columnIndex);
+            }
+        } else if (target.classList.contains('move-right')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const columnIndex = this.getColumnIndex(target);
+            if (columnIndex !== -1) {
+                this.moveColumnRight(columnIndex);
+            }
         }
-
-        this.tableBody.appendChild(row);
     }
 
-    // Setup auto-save functionality
-    setupAutoSave() {
-        // Save on input changes with debounce
-        let saveTimeout;
-        const debouncedSave = () => {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                this.saveToStorage();
+    handleInput(e) {
+        const target = e.target;
+        
+        if (target.classList.contains('character-name-input')) {
+            this.autoSave();
+            this.animateInput(target);
+        } else if (target.classList.contains('character-memo-textarea')) {
+            this.adjustTextareaHeight(target);
+            this.autoSave();
+            this.animateInput(target);
+        } else if (target.classList.contains('activity-cell')) {
+            this.autoSave();
+            this.animateInput(target);
+        }
+    }
+
+    handleFocus(e) {
+        const target = e.target;
+        
+        if (target.classList.contains('character-name-input')) {
+            const parent = target.closest('.character-header');
+            if (parent) parent.style.background = 'rgba(255, 215, 0, 0.1)';
+        } else if (target.classList.contains('character-memo-textarea')) {
+            const parent = target.closest('.character-memo-header');
+            if (parent) parent.style.background = 'rgba(255, 215, 0, 0.1)';
+        } else if (target.classList.contains('activity-cell')) {
+            target.style.background = 'rgba(255, 215, 0, 0.1)';
+            target.style.transform = 'scale(1.02)';
+        }
+    }
+
+    handleBlur(e) {
+        const target = e.target;
+        
+        if (target.classList.contains('character-name-input')) {
+            const parent = target.closest('.character-header');
+            if (parent) parent.style.background = '';
+        } else if (target.classList.contains('character-memo-textarea')) {
+            const parent = target.closest('.character-memo-header');
+            if (parent) parent.style.background = '';
+        } else if (target.classList.contains('activity-cell')) {
+            target.style.background = '';
+            target.style.transform = 'scale(1)';
+        }
+    }
+
+    animateInput(target) {
+        if (target.classList.contains('activity-cell')) {
+            target.style.borderColor = 'rgba(255, 215, 0, 0.5)';
+            setTimeout(() => {
+                target.style.borderColor = '';
             }, 1000);
+        } else {
+            target.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+                target.style.transform = 'scale(1)';
+            }, 150);
+        }
+    }
+
+    // 列インデックスの取得を修正
+    getColumnIndex(button) {
+        try {
+            const header = button.closest('.character-header');
+            if (!header) {
+                console.error('Header not found for button:', button);
+                return -1;
+            }
+
+            const headers = Array.from(this.nameRow.querySelectorAll('.character-header'));
+            const index = headers.indexOf(header);
+            
+            console.log('Found column index:', index, 'for button:', button);
+            return index;
+        } catch (error) {
+            console.error('Error getting column index:', error);
+            return -1;
+        }
+    }
+
+    // 簡潔な列移動メソッド
+    moveColumnLeft(columnIndex) {
+        const totalColumns = this.nameRow.querySelectorAll('.character-header').length;
+        const targetIndex = columnIndex === 0 ? totalColumns - 1 : columnIndex - 1;
+        this.swapColumns(columnIndex, targetIndex);
+    }
+
+    moveColumnRight(columnIndex) {
+        const totalColumns = this.nameRow.querySelectorAll('.character-header').length;
+        const targetIndex = columnIndex === totalColumns - 1 ? 0 : columnIndex + 1;
+        this.swapColumns(columnIndex, targetIndex);
+    }
+
+    // データベースの列交換（DOM操作なし）
+    swapColumns(index1, index2) {
+        try {
+            console.log('Swapping columns:', index1, '↔', index2);
+
+            // データを抽出
+            const column1Data = this.extractColumnData(index1);
+            const column2Data = this.extractColumnData(index2);
+
+            console.log('Column 1 data:', column1Data);
+            console.log('Column 2 data:', column2Data);
+
+            // データを交換
+            this.setColumnData(index1, column2Data);
+            this.setColumnData(index2, column1Data);
+
+            // 保存して通知
+            this.autoSave();
+            this.showNotification('列を移動しました', 'success');
+
+        } catch (error) {
+            console.error('Error swapping columns:', error);
+            this.showNotification('列の移動に失敗しました', 'error');
+        }
+    }
+
+    // 列データの抽出
+    extractColumnData(columnIndex) {
+        const nameHeaders = this.nameRow.querySelectorAll('.character-header');
+        const memoHeaders = this.memoRow.querySelectorAll('.character-memo-header');
+        const bodyRows = this.tableBody.querySelectorAll('tr');
+
+        if (!nameHeaders[columnIndex] || !memoHeaders[columnIndex]) {
+            throw new Error(`Invalid column index: ${columnIndex}`);
+        }
+
+        const nameInput = nameHeaders[columnIndex].querySelector('.character-name-input');
+        const memoTextarea = memoHeaders[columnIndex].querySelector('.character-memo-textarea');
+
+        const activities = Array.from(bodyRows).map(row => {
+            const cells = row.querySelectorAll('.activity-cell');
+            return cells[columnIndex] ? cells[columnIndex].textContent : '';
+        });
+
+        return {
+            name: nameInput ? nameInput.value : '',
+            memo: memoTextarea ? memoTextarea.value : '',
+            activities: activities
         };
-
-        // Save on character input changes
-        document.addEventListener('input', (e) => {
-            if (e.target.matches('.character-name-input')) {
-                debouncedSave();
-            }
-        });
-
-        // Save on activity cell changes
-        document.addEventListener('input', (e) => {
-            if (e.target.matches('.activity-cell')) {
-                debouncedSave();
-            }
-        });
-
-        // Save on blur for activity cells
-        document.addEventListener('blur', (e) => {
-            if (e.target.matches('.activity-cell')) {
-                this.saveToStorage();
-            }
-        }, true);
     }
 
-    // Update the dropdown with current time options
-    updateInsertDropdown() {
-        if (!this.insertBeforeSelect) {
-            console.error('Insert before select element not found');
-            return;
+    // 列データの設定
+    setColumnData(columnIndex, data) {
+        const nameHeaders = this.nameRow.querySelectorAll('.character-header');
+        const memoHeaders = this.memoRow.querySelectorAll('.character-memo-header');
+        const bodyRows = this.tableBody.querySelectorAll('tr');
+
+        // 名前を設定
+        const nameInput = nameHeaders[columnIndex].querySelector('.character-name-input');
+        if (nameInput) {
+            nameInput.value = data.name || '';
         }
 
-        const currentOption = this.insertBeforeSelect.value;
-        
-        // Clear existing options
-        this.insertBeforeSelect.innerHTML = '';
-        
-        // Add "最後に追加" as default option
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = '最後に追加';
-        this.insertBeforeSelect.appendChild(defaultOption);
-        
-        // Get all existing times from the table
-        const timeDisplays = this.tableBody.querySelectorAll('.time-display');
-        const times = [];
-        
-        timeDisplays.forEach(timeDisplay => {
-            const timeText = timeDisplay.textContent.trim();
-            if (timeText) {
-                times.push(timeText);
-            }
-        });
-        
-        // Sort times chronologically
-        times.sort((a, b) => {
-            const [aHours, aMinutes] = a.split(':').map(Number);
-            const [bHours, bMinutes] = b.split(':').map(Number);
-            return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes);
-        });
-        
-        // Add time options to dropdown
-        times.forEach(time => {
-            const option = document.createElement('option');
-            option.value = time;
-            option.textContent = time;
-            this.insertBeforeSelect.appendChild(option);
-        });
-        
-        // Restore previously selected option if it still exists
-        if (currentOption && times.includes(currentOption)) {
-            this.insertBeforeSelect.value = currentOption;
+        // メモを設定
+        const memoTextarea = memoHeaders[columnIndex].querySelector('.character-memo-textarea');
+        if (memoTextarea) {
+            memoTextarea.value = data.memo || '';
+            this.adjustTextareaHeight(memoTextarea);
         }
 
-        console.log(`Dropdown updated with ${times.length} time options`);
-    }
-
-    // Show/hide confirmation modal
-    showConfirmationModal(title, message, onConfirm) {
-        const modalTitle = document.getElementById('modalTitle');
-        const modalMessage = document.getElementById('modalMessage');
-        const modalConfirm = document.getElementById('modalConfirm');
-        const modalCancel = document.getElementById('modalCancel');
-
-        modalTitle.textContent = title;
-        modalMessage.textContent = message;
-        
-        // Remove existing listeners
-        const newModalConfirm = modalConfirm.cloneNode(true);
-        const newModalCancel = modalCancel.cloneNode(true);
-        modalConfirm.parentNode.replaceChild(newModalConfirm, modalConfirm);
-        modalCancel.parentNode.replaceChild(newModalCancel, modalCancel);
-        
-        // Add new listeners
-        newModalConfirm.addEventListener('click', () => {
-            this.hideConfirmationModal();
-            onConfirm();
-        });
-        
-        newModalCancel.addEventListener('click', () => {
-            this.hideConfirmationModal();
-        });
-        
-        // Show modal
-        this.confirmationModal.classList.remove('hidden');
-        
-        // Close on backdrop click
-        const backdrop = this.confirmationModal.querySelector('.modal-backdrop');
-        const newBackdrop = backdrop.cloneNode(true);
-        backdrop.parentNode.replaceChild(newBackdrop, backdrop);
-        newBackdrop.addEventListener('click', () => {
-            this.hideConfirmationModal();
+        // 活動内容を設定
+        bodyRows.forEach((row, rowIndex) => {
+            const cells = row.querySelectorAll('.activity-cell');
+            if (cells[columnIndex] && data.activities && data.activities[rowIndex] !== undefined) {
+                cells[columnIndex].textContent = data.activities[rowIndex];
+            }
         });
     }
 
-    hideConfirmationModal() {
-        this.confirmationModal.classList.add('hidden');
+    // Load saved data on page load
+    loadSavedData() {
+        const data = this.storage.loadData();
+        if (data && data.characters && data.characters.length > 0) {
+            this.restoreTableFromData(data);
+        }
     }
 
-    // Reset all data
-    resetData() {
-        this.showConfirmationModal(
-            'データのリセット',
-            '全てのデータを削除してもよろしいですか？この操作は取り消すことができません。',
-            () => {
-                try {
-                    localStorage.removeItem(this.storageKey);
-                    location.reload(); // Reload page to reset to default state
-                } catch (error) {
-                    console.error('Error resetting data:', error);
-                    this.showNotification('リセット中にエラーが発生しました', 'error');
+    // Restore table from saved data
+    restoreTableFromData(data) {
+        this.clearTable();
+
+        data.characters.forEach((characterName, index) => {
+            if (index < 3) {
+                const characterInputs = this.nameRow.querySelectorAll('.character-name-input');
+                if (characterInputs[index]) {
+                    characterInputs[index].value = characterName;
                 }
+            } else {
+                this.addCharacterColumn(characterName, false);
             }
-        );
+        });
+
+        if (data.memos) {
+            data.memos.forEach((memo, index) => {
+                const memoTextareas = this.memoRow.querySelectorAll('.character-memo-textarea');
+                if (memoTextareas[index]) {
+                    memoTextareas[index].value = memo;
+                    this.adjustTextareaHeight(memoTextareas[index]);
+                }
+            });
+        }
+
+        data.timeRows.forEach((time, index) => {
+            if (index < 5) {
+                const timeDisplays = this.tableBody.querySelectorAll('.time-display');
+                if (timeDisplays[index]) {
+                    timeDisplays[index].textContent = time;
+                }
+            } else {
+                this.addTimeRowDirect(time, data.characters.length);
+            }
+        });
+
+        if (data.cellData) {
+            Object.entries(data.cellData).forEach(([cellId, content]) => {
+                const [, rowIndex, colIndex] = cellId.split('-').map(Number);
+                const rows = this.tableBody.querySelectorAll('tr');
+                if (rows[rowIndex]) {
+                    const cells = rows[rowIndex].querySelectorAll('.activity-cell');
+                    if (cells[colIndex]) {
+                        cells[colIndex].textContent = content;
+                    }
+                }
+            });
+        }
     }
 
-    // Show loading overlay with animation
+    clearTable() {
+        const characterHeaders = this.nameRow.querySelectorAll('.character-header');
+        for (let i = 3; i < characterHeaders.length; i++) {
+            characterHeaders[i].remove();
+        }
+
+        const memoHeaders = this.memoRow.querySelectorAll('.character-memo-header');
+        for (let i = 3; i < memoHeaders.length; i++) {
+            memoHeaders[i].remove();
+        }
+
+        const timeRows = this.tableBody.querySelectorAll('tr');
+        for (let i = 5; i < timeRows.length; i++) {
+            timeRows[i].remove();
+        }
+
+        const activityCells = this.tableBody.querySelectorAll('.activity-cell');
+        activityCells.forEach(cell => {
+            cell.textContent = '';
+        });
+
+        timeRows.forEach(row => {
+            const cells = row.querySelectorAll('.activity-cell');
+            for (let i = 3; i < cells.length; i++) {
+                cells[i].remove();
+            }
+        });
+    }
+
+    saveCurrentState() {
+        const characters = [];
+        const characterInputs = this.nameRow.querySelectorAll('.character-name-input');
+        characterInputs.forEach(input => {
+            characters.push(input.value || 'New Character');
+        });
+
+        const memos = [];
+        const memoTextareas = this.memoRow.querySelectorAll('.character-memo-textarea');
+        memoTextareas.forEach(textarea => {
+            memos.push(textarea.value || '');
+        });
+
+        const timeRows = [];
+        const timeDisplays = this.tableBody.querySelectorAll('.time-display');
+        timeDisplays.forEach(display => {
+            timeRows.push(display.textContent);
+        });
+
+        const cellData = {};
+        const rows = this.tableBody.querySelectorAll('tr');
+        rows.forEach((row, rowIndex) => {
+            const cells = row.querySelectorAll('.activity-cell');
+            cells.forEach((cell, colIndex) => {
+                const content = cell.textContent.trim();
+                if (content) {
+                    cellData[`row-${rowIndex}-col-${colIndex}`] = content;
+                }
+            });
+        });
+
+        const data = { characters, memos, timeRows, cellData };
+        this.storage.saveData(data);
+        this.showSaveIndicator();
+        this.updateLastSavedIndicator();
+    }
+
+    autoSave() {
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+        }
+        this.saveTimeout = setTimeout(() => {
+            this.saveCurrentState();
+        }, 1000);
+    }
+
+    showSaveIndicator() {
+        if (this.saveIndicator) {
+            this.saveIndicator.classList.remove('hidden');
+            setTimeout(() => {
+                this.saveIndicator.classList.add('hidden');
+            }, 1500);
+        }
+    }
+
+    updateLastSavedIndicator() {
+        if (!this.lastSavedText) return;
+
+        const data = this.storage.loadData();
+        if (data && data.lastSaved) {
+            const date = new Date(data.lastSaved);
+            const formatted = date.toLocaleString('ja-JP', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            this.lastSavedText.textContent = `最終保存: ${formatted}`;
+        } else {
+            this.lastSavedText.textContent = '最終保存: 未保存';
+        }
+    }
+
+    setupResetModal() {
+        const resetButton = document.getElementById('resetButton');
+        const confirmReset = document.getElementById('confirmReset');
+        const cancelReset = document.getElementById('cancelReset');
+        
+        if (!this.resetModal || !resetButton || !confirmReset || !cancelReset) return;
+
+        const modalBackdrop = this.resetModal.querySelector('.modal-backdrop');
+
+        resetButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.resetModal.classList.remove('hidden');
+        });
+
+        confirmReset.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.performReset();
+            this.resetModal.classList.add('hidden');
+        });
+
+        cancelReset.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.resetModal.classList.add('hidden');
+        });
+
+        if (modalBackdrop) {
+            modalBackdrop.addEventListener('click', () => {
+                this.resetModal.classList.add('hidden');
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !this.resetModal.classList.contains('hidden')) {
+                this.resetModal.classList.add('hidden');
+            }
+        });
+    }
+
+    performReset() {
+        this.showLoading();
+
+        setTimeout(() => {
+            this.storage.clearData();
+            this.clearTable();
+
+            const characterInputs = this.nameRow.querySelectorAll('.character-name-input');
+            const defaultNames = ['登場人物A', '登場人物B', '登場人物C'];
+            characterInputs.forEach((input, index) => {
+                input.value = defaultNames[index] || `登場人物${index + 1}`;
+            });
+
+            const memoTextareas = this.memoRow.querySelectorAll('.character-memo-textarea');
+            memoTextareas.forEach((textarea) => {
+                textarea.value = '';
+                textarea.rows = 2;
+            });
+
+            const timeDisplays = this.tableBody.querySelectorAll('.time-display');
+            const defaultTimes = ['08:00', '09:00', '10:00', '11:00', '12:00'];
+            timeDisplays.forEach((display, index) => {
+                display.textContent = defaultTimes[index] || '12:00';
+            });
+
+            // プレースホルダーを削除
+            this.removeAllPlaceholders();
+
+            this.updateLastSavedIndicator();
+            this.showNotification('データがリセットされました', 'success');
+        }, 500);
+    }
+
     showLoading() {
-        this.loadingOverlay.classList.remove('hidden');
-        setTimeout(() => this.hideLoading(), 300);
+        if (this.loadingOverlay) {
+            this.loadingOverlay.classList.remove('hidden');
+            setTimeout(() => this.hideLoading(), 800);
+        }
     }
 
-    // Hide loading overlay
     hideLoading() {
-        this.loadingOverlay.classList.add('hidden');
+        if (this.loadingOverlay) {
+            this.loadingOverlay.classList.add('hidden');
+        }
     }
 
-    // Add initial fade-in animations
+    setupMemoAutoResize() {
+        const memoTextareas = document.querySelectorAll('.character-memo-textarea');
+        memoTextareas.forEach(textarea => {
+            this.adjustTextareaHeight(textarea);
+        });
+    }
+
+    adjustTextareaHeight(textarea) {
+        textarea.style.height = 'auto';
+        const scrollHeight = textarea.scrollHeight;
+        const minHeight = 32;
+        const maxHeight = 80;
+        textarea.style.height = Math.min(Math.max(scrollHeight, minHeight), maxHeight) + 'px';
+    }
+
     addInitialAnimations() {
         const elements = document.querySelectorAll('.control-group, .timetable-container');
         elements.forEach((el, index) => {
             el.style.opacity = '0';
             el.style.transform = 'translateY(20px)';
-            
             setTimeout(() => {
                 el.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
                 el.style.opacity = '1';
@@ -321,517 +617,262 @@ class DetectiveTimetable {
         });
     }
 
-    // Setup all event listeners
-    setupEventListeners() {
-        // Character management buttons
-        const addButton = document.getElementById('addButton');
-        const removeButton = document.getElementById('removeButton');
-        const addTimeButton = document.getElementById('addTimeButton');
-        const removeTimeButton = document.getElementById('removeTimeButton');
-        const resetButton = document.getElementById('resetButton');
+    updateTimeSelectOptions() {
+        const timeSelect = document.getElementById('insert-time');
+        if (!timeSelect) return;
 
-        if (addButton) {
-            addButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showLoading();
-                setTimeout(() => this.addCharacter(), 100);
-            });
-        }
+        const existingTimes = Array.from(this.tableBody.querySelectorAll('.time-display'))
+            .map(td => td.textContent)
+            .sort();
 
-        if (removeButton) {
-            removeButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showLoading();
-                setTimeout(() => this.removeCharacters(), 100);
-            });
-        }
-
-        if (addTimeButton) {
-            addTimeButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showLoading();
-                setTimeout(() => this.addTimeRows(), 100);
-            });
-        }
-
-        if (removeTimeButton) {
-            removeTimeButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showLoading();
-                setTimeout(() => this.removeTimeRows(), 100);
-            });
-        }
-
-        if (resetButton) {
-            resetButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.resetData();
-            });
-        }
-    }
-
-    // Setup character input listeners for existing inputs
-    setupCharacterInputListeners() {
-        const existingInputs = document.querySelectorAll('.character-name-input');
-        existingInputs.forEach(input => {
-            this.addCharacterInputListener(input);
+        timeSelect.innerHTML = '';
+        existingTimes.forEach(time => {
+            const option = document.createElement('option');
+            option.value = time;
+            option.textContent = time;
+            timeSelect.appendChild(option);
         });
     }
 
-    // Add event listener to character input for real-time updates
-    addCharacterInputListener(input) {
-        input.addEventListener('input', function() {
-            // Visual feedback on input
-            this.style.transform = 'scale(1.02)';
-            setTimeout(() => {
-                this.style.transform = 'scale(1)';
-            }, 150);
-        });
+    addButtonHoverEffects() {
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'translateY(-2px)';
+            });
 
-        input.addEventListener('focus', function() {
-            this.parentElement.style.background = 'rgba(255, 215, 0, 0.1)';
-        });
-
-        input.addEventListener('blur', function() {
-            this.parentElement.style.background = 'transparent';
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translateY(0)';
+            });
         });
     }
 
-    // Add new character column
     addCharacter() {
-        // Create new header cell
-        const newHeader = document.createElement('th');
-        newHeader.className = 'character-header';
-        newHeader.innerHTML = `
-            <div class="character-cell">
-                <input type="text" value="新しい登場人物" class="character-name-input">
+        this.addCharacterColumn('新しい登場人物', true);
+    }
+
+    addCharacterColumn(characterName = '新しい登場人物', shouldAutoSave = true) {
+        const newNameHeader = document.createElement('th');
+        newNameHeader.className = 'character-header';
+        newNameHeader.innerHTML = `
+            <div class="character-name-row">
+                <input type="text" class="character-name-input" value="${characterName}" placeholder="登場人物名">
+            </div>
+            <div class="character-controls-row">
+                <button class="move-btn move-left" type="button" title="左に移動">‹</button>
                 <input type="checkbox" class="delete-checkbox">
+                <button class="move-btn move-right" type="button" title="右に移動">›</button>
             </div>
         `;
-        
-        // Add with animation
-        newHeader.style.opacity = '0';
-        newHeader.style.transform = 'translateX(20px)';
-        this.headerRow.appendChild(newHeader);
-        
-        // Animate in
-        setTimeout(() => {
-            newHeader.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            newHeader.style.opacity = '1';
-            newHeader.style.transform = 'translateX(0)';
-        }, 50);
+        this.nameRow.appendChild(newNameHeader);
 
-        // Add corresponding cells to all body rows
-        const bodyRows = this.tableBody.querySelectorAll('tr');
-        bodyRows.forEach((row, index) => {
+        const newMemoHeader = document.createElement('th');
+        newMemoHeader.className = 'character-memo-header';
+        newMemoHeader.innerHTML = `
+            <textarea class="character-memo-textarea" placeholder="メモ..." rows="2"></textarea>
+        `;
+        this.memoRow.appendChild(newMemoHeader);
+
+        const existingRows = this.tableBody.querySelectorAll('tr');
+        existingRows.forEach(row => {
             const newCell = document.createElement('td');
             newCell.className = 'activity-cell';
-            newCell.contentEditable = 'true';
-            newCell.setAttribute('data-placeholder', '活動を記入...');
-            
-            // Add with staggered animation
-            newCell.style.opacity = '0';
-            newCell.style.transform = 'translateX(20px)';
+            newCell.contentEditable = true;
+            // プレースホルダーは設定しない
             row.appendChild(newCell);
-            
-            setTimeout(() => {
-                newCell.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                newCell.style.opacity = '1';
-                newCell.style.transform = 'translateX(0)';
-            }, 100 + (index * 50));
-
-            // Add focus effects
-            this.addCellFocusEffects(newCell);
         });
 
-        // Setup listener for new character input
-        const newInput = newHeader.querySelector('.character-name-input');
-        this.addCharacterInputListener(newInput);
-        
-        // Focus on new input
-        setTimeout(() => {
-            newInput.focus();
-            newInput.select();
-        }, 400);
+        const newMemoTextarea = newMemoHeader.querySelector('.character-memo-textarea');
+        this.adjustTextareaHeight(newMemoTextarea);
 
-        // Auto-save
-        setTimeout(() => {
-            this.saveToStorage();
-        }, 500);
+        if (shouldAutoSave) {
+            this.autoSave();
+            this.showNotification('登場人物を追加しました', 'success');
+        }
 
-        this.showNotification('新しい登場人物を追加しました', 'success');
+        this.hideLoading();
     }
 
-    // Remove selected character columns
     removeCharacters() {
-        const checkboxes = this.headerRow.querySelectorAll('.delete-checkbox');
-        const columnsToDelete = [];
-        const bodyRows = this.tableBody.querySelectorAll('tr');
-
-        // Find columns marked for deletion
-        checkboxes.forEach((checkbox, index) => {
-            if (checkbox.checked) {
-                columnsToDelete.push(index + 1); // +1 to account for time column
-            }
-        });
-
-        if (columnsToDelete.length === 0) {
+        const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
+        if (checkboxes.length === 0) {
             this.showNotification('削除する登場人物を選択してください', 'warning');
+            this.hideLoading();
             return;
         }
 
-        // Animate out columns before deletion
-        columnsToDelete.forEach(colIndex => {
-            const headerCell = this.headerRow.children[colIndex];
-            if (headerCell) {
-                headerCell.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                headerCell.style.opacity = '0';
-                headerCell.style.transform = 'translateX(-20px)';
-            }
+        const indicesToRemove = Array.from(checkboxes).map(checkbox => {
+            const header = checkbox.closest('.character-header');
+            const headers = Array.from(this.nameRow.querySelectorAll('.character-header'));
+            return headers.indexOf(header);
+        }).sort((a, b) => b - a);
 
-            bodyRows.forEach(row => {
-                const cell = row.children[colIndex];
-                if (cell) {
-                    cell.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                    cell.style.opacity = '0';
-                    cell.style.transform = 'translateX(-20px)';
-                }
-            });
-        });
+        indicesToRemove.forEach(index => {
+            const nameHeaders = this.nameRow.querySelectorAll('.character-header');
+            if (nameHeaders[index]) nameHeaders[index].remove();
 
-        // Remove columns after animation
-        setTimeout(() => {
-            columnsToDelete.reverse().forEach(colIndex => {
-                if (this.headerRow.children[colIndex]) {
-                    this.headerRow.removeChild(this.headerRow.children[colIndex]);
-                }
-                bodyRows.forEach(row => {
-                    if (row.children[colIndex]) {
-                        row.removeChild(row.children[colIndex]);
-                    }
-                });
-            });
-            
-            // Auto-save
-            this.saveToStorage();
-            this.showNotification('登場人物を削除しました', 'success');
-        }, 350);
-    }
+            const memoHeaders = this.memoRow.querySelectorAll('.character-memo-header');
+            if (memoHeaders[index]) memoHeaders[index].remove();
 
-    // Add new time rows using dropdown selection
-    addTimeRows() {
-        const timeIntervalSelect = document.getElementById('time-interval');
-        const timeInterval = parseInt(timeIntervalSelect.value);
-        const insertBeforeTime = this.insertBeforeSelect.value;
-        const characterCount = this.headerRow.children.length - 1;
-
-        console.log(`Adding time rows: interval=${timeInterval}min, insertBefore="${insertBeforeTime}"`);
-
-        // Find insertion point
-        const rows = this.tableBody.querySelectorAll('tr');
-        let insertBeforeRow = null;
-        
-        // If a specific time is selected, find that row
-        if (insertBeforeTime) {
-            for (let row of rows) {
-                const timeDisplay = row.querySelector('.time-display');
-                if (timeDisplay && timeDisplay.textContent.trim() === insertBeforeTime) {
-                    insertBeforeRow = row;
-                    break;
-                }
-            }
-        }
-
-        // Calculate time range
-        let startTime, endTime;
-        
-        if (insertBeforeTime && insertBeforeRow) {
-            // Insert before selected time
-            const [hours, minutes] = insertBeforeTime.split(':').map(Number);
-            endTime = new Date();
-            endTime.setHours(hours, minutes, 0, 0);
-
-            startTime = new Date(endTime);
-            if (insertBeforeRow.previousElementSibling) {
-                const prevTimeDisplay = insertBeforeRow.previousElementSibling.querySelector('.time-display');
-                if (prevTimeDisplay) {
-                    const [prevHours, prevMinutes] = prevTimeDisplay.textContent.split(':').map(Number);
-                    startTime.setHours(prevHours, prevMinutes + timeInterval, 0, 0);
-                } else {
-                    startTime.setMinutes(startTime.getMinutes() - 60);
-                }
-            } else {
-                startTime.setMinutes(startTime.getMinutes() - 60);
-            }
-        } else {
-            // Add at the end (default option)
-            const lastRow = rows[rows.length - 1];
-            if (lastRow) {
-                const lastTimeDisplay = lastRow.querySelector('.time-display');
-                if (lastTimeDisplay) {
-                    const [lastHours, lastMinutes] = lastTimeDisplay.textContent.split(':').map(Number);
-                    startTime = new Date();
-                    startTime.setHours(lastHours, lastMinutes + timeInterval, 0, 0);
-                    endTime = new Date(startTime);
-                    endTime.setHours(endTime.getHours() + 1);
-                }
-            } else {
-                // No existing rows, start from 08:00
-                startTime = new Date();
-                startTime.setHours(8, 0, 0, 0);
-                endTime = new Date(startTime);
-                endTime.setHours(endTime.getHours() + 1);
-            }
-        }
-
-        // Generate new rows
-        const newRows = [];
-        const currentTime = new Date(startTime);
-        
-        while (currentTime < endTime) {
-            const formattedTime = currentTime.toTimeString().slice(0, 5);
-            
-            // Check if this time already exists
-            let timeExists = false;
+            const rows = this.tableBody.querySelectorAll('tr');
             rows.forEach(row => {
-                const timeDisplay = row.querySelector('.time-display');
-                if (timeDisplay && timeDisplay.textContent.trim() === formattedTime) {
-                    timeExists = true;
-                }
+                const cells = row.querySelectorAll('.activity-cell');
+                if (cells[index]) cells[index].remove();
             });
-            
-            if (!timeExists) {
-                const newRow = this.createTimeRow(formattedTime, characterCount);
-                newRows.push(newRow);
-            }
-            
-            currentTime.setMinutes(currentTime.getMinutes() + timeInterval);
-        }
-
-        // Insert rows with animation
-        newRows.forEach((row, index) => {
-            row.style.opacity = '0';
-            row.style.transform = 'translateY(20px)';
-            
-            if (insertBeforeRow) {
-                this.tableBody.insertBefore(row, insertBeforeRow);
-            } else {
-                this.tableBody.appendChild(row);
-            }
-
-            // Animate in with stagger
-            setTimeout(() => {
-                row.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                row.style.opacity = '1';
-                row.style.transform = 'translateY(0)';
-                row.classList.add('fade-in');
-            }, index * 100);
         });
 
-        // Update dropdown and auto-save after adding rows
-        setTimeout(() => {
-            this.updateInsertDropdown();
-            this.saveToStorage();
-        }, 500);
-
-        if (newRows.length > 0) {
-            this.showNotification(`${newRows.length}行の時間を追加しました`, 'success');
-        } else {
-            this.showNotification('追加する新しい時間がありません', 'info');
-        }
+        this.autoSave();
+        this.showNotification(`${indicesToRemove.length}名の登場人物を削除しました`, 'success');
+        this.hideLoading();
     }
 
-    // Create a new time row
-    createTimeRow(time, characterCount) {
-        const row = document.createElement('tr');
-        row.className = 'table-row';
+    addTimeRows() {
+        const intervalSelect = document.getElementById('time-interval');
+        const timeSelect = document.getElementById('insert-time');
+        const directionRadios = document.querySelectorAll('input[name="insert-direction"]');
+        
+        if (!intervalSelect || !timeSelect || !directionRadios.length) {
+            this.hideLoading();
+            return;
+        }
 
-        // Time cell
+        const interval = parseInt(intervalSelect.value);
+        const baseTime = timeSelect.value;
+        const direction = Array.from(directionRadios).find(radio => radio.checked).value;
+
+        if (!baseTime) {
+            this.showNotification('挿入位置を選択してください', 'warning');
+            this.hideLoading();
+            return;
+        }
+
+        const [baseHour, baseMinute] = baseTime.split(':').map(Number);
+        const baseDate = new Date(2000, 0, 1, baseHour, baseMinute);
+
+        const newDate = new Date(baseDate);
+        if (direction === 'after') {
+            newDate.setMinutes(newDate.getMinutes() + interval);
+        } else {
+            newDate.setMinutes(newDate.getMinutes() - interval);
+        }
+
+        const newTime = String(newDate.getHours()).padStart(2, '0') + ':' + 
+                       String(newDate.getMinutes()).padStart(2, '0');
+
+        const existingTimes = Array.from(this.tableBody.querySelectorAll('.time-display'))
+            .map(td => td.textContent);
+        
+        if (existingTimes.includes(newTime)) {
+            this.showNotification('その時間は既に存在します', 'warning');
+            this.hideLoading();
+            return;
+        }
+
+        const characterCount = this.nameRow.querySelectorAll('.character-header').length;
+        this.addTimeRowDirect(newTime, characterCount);
+        this.updateTimeSelectOptions();
+
+        this.autoSave();
+        this.showNotification('時間行を追加しました', 'success');
+        this.hideLoading();
+    }
+
+    addTimeRowDirect(time, characterCount) {
+        const newRow = document.createElement('tr');
+        newRow.className = 'table-row';
+
         const timeCell = document.createElement('td');
         timeCell.className = 'time-cell';
         timeCell.innerHTML = `
             <div class="time-cell-content">
-                <input type="checkbox" class="time-delete-checkbox">
                 <span class="time-display">${time}</span>
+                <button class="move-btn move-left" title="上に移動">↑</button>
+                <button class="move-btn move-right" title="下に移動">↓</button>
+                <input type="checkbox" class="delete-checkbox">
             </div>
         `;
-        row.appendChild(timeCell);
+        newRow.appendChild(timeCell);
 
-        // Activity cells
         for (let i = 0; i < characterCount; i++) {
             const activityCell = document.createElement('td');
             activityCell.className = 'activity-cell';
-            activityCell.contentEditable = 'true';
-            activityCell.setAttribute('data-placeholder', '活動を記入...');
-            row.appendChild(activityCell);
-            
-            this.addCellFocusEffects(activityCell);
+            activityCell.contentEditable = true;
+            // プレースホルダーは設定しない
+            newRow.appendChild(activityCell);
         }
 
-        return row;
+        this.tableBody.appendChild(newRow);
     }
 
-    // Add focus effects to activity cells
-    addCellFocusEffects(cell) {
-        cell.addEventListener('focus', () => {
-            cell.style.background = 'rgba(255, 215, 0, 0.1)';
-            cell.style.transform = 'scale(1.02)';
-        });
-
-        cell.addEventListener('blur', () => {
-            cell.style.background = '';
-            cell.style.transform = 'scale(1)';
-        });
-
-        cell.addEventListener('input', () => {
-            // Visual feedback on content change
-            cell.style.borderColor = 'rgba(255, 215, 0, 0.5)';
-            setTimeout(() => {
-                cell.style.borderColor = '';
-            }, 1000);
-        });
-    }
-
-    // Remove selected time rows
     removeTimeRows() {
-        const checkboxes = this.tableBody.querySelectorAll('.time-delete-checkbox');
-        const rowsToDelete = [];
-
-        checkboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                rowsToDelete.push(checkbox.closest('tr'));
-            }
-        });
-
-        if (rowsToDelete.length === 0) {
+        const checkboxes = this.tableBody.querySelectorAll('.delete-checkbox:checked');
+        if (checkboxes.length === 0) {
             this.showNotification('削除する時間行を選択してください', 'warning');
+            this.hideLoading();
             return;
         }
 
-        // Animate out rows
-        rowsToDelete.forEach((row, index) => {
-            setTimeout(() => {
-                row.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                row.style.opacity = '0';
-                row.style.transform = 'translateX(-100%)';
-            }, index * 50);
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            if (row) row.remove();
         });
 
-        // Remove rows after animation
-        setTimeout(() => {
-            rowsToDelete.forEach(row => {
-                row.remove();
-            });
-            
-            // Update dropdown and auto-save after removing rows
-            this.updateInsertDropdown();
-            this.saveToStorage();
-            
-            this.showNotification(`${rowsToDelete.length}行を削除しました`, 'success');
-        }, 400);
+        this.updateTimeSelectOptions();
+        this.autoSave();
+        this.showNotification(`${checkboxes.length}行を削除しました`, 'success');
+        this.hideLoading();
     }
 
-    // Show notification message
     showNotification(message, type = 'info') {
-        // Remove existing notifications
-        const existingNotifications = document.querySelectorAll('.notification');
-        existingNotifications.forEach(notification => notification.remove());
+        const existingNotification = document.querySelector('.notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
 
-        // Create notification element
         const notification = document.createElement('div');
         notification.className = `notification notification--${type}`;
         notification.textContent = message;
-        
-        // Style the notification
-        Object.assign(notification.style, {
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            color: '#fff',
-            fontWeight: '500',
-            fontSize: '14px',
-            zIndex: '1001',
-            opacity: '0',
-            transform: 'translateY(-20px)',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-            backdropFilter: 'blur(10px)'
-        });
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        `;
 
-        // Set background based on type
         const colors = {
-            success: 'linear-gradient(135deg, #10b981, #059669)',
-            warning: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            danger: 'linear-gradient(135deg, #ef4444, #dc2626)',
-            error: 'linear-gradient(135deg, #ef4444, #dc2626)',
-            info: 'linear-gradient(135deg, #3b82f6, #2563eb)'
+            success: '#4CAF50',
+            error: '#f44336',
+            warning: '#ff9800',
+            info: '#2196F3'
         };
-        
-        notification.style.background = colors[type] || colors.info;
+        notification.style.backgroundColor = colors[type] || colors.info;
 
-        // Add to document
         document.body.appendChild(notification);
 
-        // Animate in
         setTimeout(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateY(0)';
-        }, 50);
-
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateY(-20px)';
-            setTimeout(() => notification.remove(), 300);
+            if (notification.parentNode) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }
         }, 3000);
     }
 }
 
-// Enhanced interaction effects
+// Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🕵️ Initializing Detective Novel Timetable...');
-    
-    // Initialize the timetable
     const timetable = new DetectiveTimetable();
-    
-    // Store reference globally for debugging
-    window.timetable = timetable;
-
-    // Add enhanced interactions to existing elements
-    const activityCells = document.querySelectorAll('.activity-cell');
-    activityCells.forEach(cell => {
-        timetable.addCellFocusEffects(cell);
-    });
-
-    // Add ripple effect to buttons
-    const buttons = document.querySelectorAll('.btn');
-    buttons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            const ripple = document.createElement('span');
-            const rect = this.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            const x = e.clientX - rect.left - size / 2;
-            const y = e.clientY - rect.top - size / 2;
-            
-            ripple.style.cssText = `
-                position: absolute;
-                border-radius: 50%;
-                background: rgba(255, 255, 255, 0.3);
-                transform: scale(0);
-                animation: ripple 0.6s linear;
-                left: ${x}px;
-                top: ${y}px;
-                width: ${size}px;
-                height: ${size}px;
-            `;
-            
-            this.appendChild(ripple);
-            
-            setTimeout(() => ripple.remove(), 600);
-        });
-    });
-
-    console.log('🕵️ Detective Novel Timetable initialized successfully with auto-save and reset functionality!');
+    window.timetable = timetable; // デバッグ用
 });
+
+// Export for potential module usage
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = DetectiveTimetable;
+}
