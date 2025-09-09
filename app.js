@@ -1,9 +1,9 @@
 // Detective Novel Timetable - Enhanced with Auto-Save, Reset, and Memo functionality
 class DetectiveTimetableStorage {
-    constructor() {
-        // In-memory storage since localStorage is not available in sandbox
-        this.storage = {
-            characters: ["登場人物A", "登場人物B", "登場人物C"],
+    constructor(storageKey = 'detectiveTimetableData') {
+        this.storageKey = storageKey;
+        this.initialData = {
+            characters: ["人物A", "人物B", "人物C"],
             memos: ["", "", ""],
             timeRows: ["08:00", "09:00", "10:00", "11:00", "12:00"],
             cellData: {},
@@ -11,26 +11,39 @@ class DetectiveTimetableStorage {
         };
     }
 
-    // Save data to in-memory storage
+    // Save data to localStorage
     saveData(data) {
-        this.storage = { ...data, lastSaved: new Date().toISOString() };
-        return true;
+        try {
+            const dataToSave = { ...data, lastSaved: new Date().toISOString() };
+            localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
+            return true;
+        } catch (error) {
+            console.error("Error saving data to localStorage:", error);
+            return false;
+        }
     }
 
-    // Load data from in-memory storage
+    // Load data from localStorage
     loadData() {
-        return this.storage;
+        try {
+            const savedData = localStorage.getItem(this.storageKey);
+            if (savedData) {
+                return JSON.parse(savedData);
+            }
+        } catch (error) {
+            console.error("Error loading data from localStorage:", error);
+        }
+        // Return initial data if nothing is saved or an error occurs
+        return this.initialData;
     }
 
-    // Clear all data
+    // Clear data from localStorage
     clearData() {
-        this.storage = {
-            characters: ["登場人物A", "登場人物B", "登場人物C"],
-            memos: ["", "", ""],
-            timeRows: ["08:00", "09:00", "10:00", "11:00", "12:00"],
-            cellData: {},
-            lastSaved: null
-        };
+        try {
+            localStorage.removeItem(this.storageKey);
+        } catch (error) {
+            console.error("Error clearing data from localStorage:", error);
+        }
     }
 }
 
@@ -348,95 +361,83 @@ class DetectiveTimetable {
     // Load saved data on page load
     loadSavedData() {
         const data = this.storage.loadData();
-        if (data && data.characters && data.characters.length > 0) {
+        // Only restore if the data has been saved before (check lastSaved)
+        if (data && data.lastSaved) {
             this.restoreTableFromData(data);
         }
     }
 
     // Restore table from saved data
     restoreTableFromData(data) {
-        this.clearTable();
+        // 1. Clear the dynamic parts of the table
+        this.tableBody.innerHTML = ''; // Clear all time rows and their cells
 
+        // Clear existing character columns (except the static "Time" header)
+        const characterHeaders = this.nameRow.querySelectorAll('.character-header');
+        characterHeaders.forEach(h => h.remove());
+        const memoHeaders = this.memoRow.querySelectorAll('.character-memo-header');
+        memoHeaders.forEach(h => h.remove());
+
+        // 2. Re-create character columns and restore their data
         data.characters.forEach((characterName, index) => {
-            if (index < 3) {
-                const characterInputs = this.nameRow.querySelectorAll('.character-name-input');
-                if (characterInputs[index]) {
-                    characterInputs[index].value = characterName;
-                }
-            } else {
-                this.addCharacterColumn(characterName, false);
-            }
+            // Create and add the character column header
+            const newNameHeader = document.createElement('th');
+            newNameHeader.className = 'character-header';
+            newNameHeader.innerHTML = `
+                <div class="character-name-row">
+                    <input type="text" class="character-name-input" value="${characterName}" placeholder="人物名">
+                </div>
+                <div class="character-controls-row">
+                    <button class="move-btn move-left" type="button" title="左に移動">‹</button>
+                    <input type="checkbox" class="delete-checkbox">
+                    <button class="move-btn move-right" type="button" title="右に移動">›</button>
+                </div>
+            `;
+            this.nameRow.appendChild(newNameHeader);
+
+            // Create and add the memo header
+            const newMemoHeader = document.createElement('th');
+            newMemoHeader.className = 'character-memo-header';
+            const memo = (data.memos && data.memos[index]) ? data.memos[index] : '';
+            newMemoHeader.innerHTML = `
+                <textarea class="character-memo-textarea" placeholder="メモ..." rows="2">${memo}</textarea>
+            `;
+            this.memoRow.appendChild(newMemoHeader);
+            this.adjustTextareaHeight(newMemoHeader.querySelector('textarea'));
         });
 
-        if (data.memos) {
-            data.memos.forEach((memo, index) => {
-                const memoTextareas = this.memoRow.querySelectorAll('.character-memo-textarea');
-                if (memoTextareas[index]) {
-                    memoTextareas[index].value = memo;
-                    this.adjustTextareaHeight(memoTextareas[index]);
-                }
-            });
-        }
-
-        data.timeRows.forEach((time, index) => {
-            if (index < 5) {
-                const timeDisplays = this.tableBody.querySelectorAll('.time-display');
-                if (timeDisplays[index]) {
-                    timeDisplays[index].textContent = time;
-                }
-            } else {
-                this.addTimeRowDirect(time, data.characters.length);
-            }
+        // 3. Re-create time rows
+        const characterCount = data.characters.length;
+        data.timeRows.forEach(time => {
+            const newRow = this.createTimeRow(time, characterCount);
+            this.tableBody.appendChild(newRow);
         });
 
+        // 4. Restore cell data
         if (data.cellData) {
+            const rows = this.tableBody.querySelectorAll('tr');
             Object.entries(data.cellData).forEach(([cellId, content]) => {
-                const [, rowIndex, colIndex] = cellId.split('-').map(Number);
-                const rows = this.tableBody.querySelectorAll('tr');
-                if (rows[rowIndex]) {
-                    const cells = rows[rowIndex].querySelectorAll('.activity-cell');
-                    if (cells[colIndex]) {
-                        cells[colIndex].textContent = content;
+                const parts = cellId.split('-');
+                if (parts.length === 4 && parts[0] === 'row' && parts[2] === 'col') {
+                    const rowIndex = parseInt(parts[1], 10);
+                    const colIndex = parseInt(parts[3], 10);
+
+                    if (!isNaN(rowIndex) && !isNaN(colIndex) && rows[rowIndex]) {
+                        const cells = rows[rowIndex].querySelectorAll('.activity-cell');
+                        if (cells[colIndex]) {
+                            cells[colIndex].textContent = content;
+                        }
                     }
                 }
             });
         }
     }
 
-    clearTable() {
-        const characterHeaders = this.nameRow.querySelectorAll('.character-header');
-        for (let i = 3; i < characterHeaders.length; i++) {
-            characterHeaders[i].remove();
-        }
-
-        const memoHeaders = this.memoRow.querySelectorAll('.character-memo-header');
-        for (let i = 3; i < memoHeaders.length; i++) {
-            memoHeaders[i].remove();
-        }
-
-        const timeRows = this.tableBody.querySelectorAll('tr');
-        for (let i = 5; i < timeRows.length; i++) {
-            timeRows[i].remove();
-        }
-
-        const activityCells = this.tableBody.querySelectorAll('.activity-cell');
-        activityCells.forEach(cell => {
-            cell.textContent = '';
-        });
-
-        timeRows.forEach(row => {
-            const cells = row.querySelectorAll('.activity-cell');
-            for (let i = 3; i < cells.length; i++) {
-                cells[i].remove();
-            }
-        });
-    }
-
     saveCurrentState() {
         const characters = [];
         const characterInputs = this.nameRow.querySelectorAll('.character-name-input');
         characterInputs.forEach(input => {
-            characters.push(input.value || 'New Character');
+            characters.push(input.value || '新しい人物');
         });
 
         const memos = [];
@@ -548,31 +549,47 @@ class DetectiveTimetable {
 
         setTimeout(() => {
             this.storage.clearData();
-            this.clearTable();
 
+            // 1. Clear table body completely
+            this.tableBody.innerHTML = '';
+
+            // 2. Remove extra character columns (if any)
+            const characterHeaders = this.nameRow.querySelectorAll('.character-header');
+            for (let i = characterHeaders.length - 1; i >= 3; i--) {
+                characterHeaders[i].remove();
+            }
+            const memoHeaders = this.memoRow.querySelectorAll('.character-memo-header');
+            for (let i = memoHeaders.length - 1; i >= 3; i--) {
+                memoHeaders[i].remove();
+            }
+
+            // 3. Reset the first 3 character names and memos
             const characterInputs = this.nameRow.querySelectorAll('.character-name-input');
-            const defaultNames = ['登場人物A', '登場人物B', '登場人物C'];
+            const defaultNames = ['人物A', '人物B', '人物C'];
             characterInputs.forEach((input, index) => {
-                input.value = defaultNames[index] || `登場人物${index + 1}`;
+                if (defaultNames[index]) {
+                    input.value = defaultNames[index];
+                }
             });
 
             const memoTextareas = this.memoRow.querySelectorAll('.character-memo-textarea');
             memoTextareas.forEach((textarea) => {
                 textarea.value = '';
-                textarea.rows = 2;
+                this.adjustTextareaHeight(textarea);
             });
 
-            const timeDisplays = this.tableBody.querySelectorAll('.time-display');
+            // 4. Re-create the default 5 time rows
             const defaultTimes = ['08:00', '09:00', '10:00', '11:00', '12:00'];
-            timeDisplays.forEach((display, index) => {
-                display.textContent = defaultTimes[index] || '12:00';
+            const characterCount = 3; // Reset to 3 characters
+            defaultTimes.forEach(time => {
+                const newRow = this.createTimeRow(time, characterCount);
+                this.tableBody.appendChild(newRow);
             });
 
-            // プレースホルダーを削除
-            this.removeAllPlaceholders();
-
+            this.updateTimeSelectOptions();
             this.updateLastSavedIndicator();
             this.showNotification('データがリセットされました', 'success');
+            this.hideLoading();
         }, 500);
     }
 
@@ -648,15 +665,15 @@ class DetectiveTimetable {
     }
 
     addCharacter() {
-        this.addCharacterColumn('新しい登場人物', true);
+        this.addCharacterColumn('新しい人物', true);
     }
 
-    addCharacterColumn(characterName = '新しい登場人物', shouldAutoSave = true) {
+    addCharacterColumn(characterName = '新しい人物', shouldAutoSave = true) {
         const newNameHeader = document.createElement('th');
         newNameHeader.className = 'character-header';
         newNameHeader.innerHTML = `
             <div class="character-name-row">
-                <input type="text" class="character-name-input" value="${characterName}" placeholder="登場人物名">
+                <input type="text" class="character-name-input" value="${characterName}" placeholder="人物名">
             </div>
             <div class="character-controls-row">
                 <button class="move-btn move-left" type="button" title="左に移動">‹</button>
@@ -687,7 +704,7 @@ class DetectiveTimetable {
 
         if (shouldAutoSave) {
             this.autoSave();
-            this.showNotification('登場人物を追加しました', 'success');
+            this.showNotification('人物を追加しました', 'success');
         }
 
         this.hideLoading();
@@ -696,7 +713,7 @@ class DetectiveTimetable {
     removeCharacters() {
         const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
         if (checkboxes.length === 0) {
-            this.showNotification('削除する登場人物を選択してください', 'warning');
+            this.showNotification('削除する人物を選択してください', 'warning');
             this.hideLoading();
             return;
         }
@@ -722,105 +739,179 @@ class DetectiveTimetable {
         });
 
         this.autoSave();
-        this.showNotification(`${indicesToRemove.length}名の登場人物を削除しました`, 'success');
+        this.showNotification(`${indicesToRemove.length}名の人物を削除しました`, 'success');
         this.hideLoading();
     }
 
     addTimeRows() {
-        const intervalSelect = document.getElementById('time-interval');
-        const timeSelect = document.getElementById('insert-time');
-        const directionRadios = document.querySelectorAll('input[name="insert-direction"]');
-        
-        if (!intervalSelect || !timeSelect || !directionRadios.length) {
-            this.hideLoading();
-            return;
-        }
-
-        const interval = parseInt(intervalSelect.value);
-        const baseTime = timeSelect.value;
-        const direction = Array.from(directionRadios).find(radio => radio.checked).value;
-
-        if (!baseTime) {
-            this.showNotification('挿入位置を選択してください', 'warning');
-            this.hideLoading();
-            return;
-        }
-
-        const [baseHour, baseMinute] = baseTime.split(':').map(Number);
-        const baseDate = new Date(2000, 0, 1, baseHour, baseMinute);
-
-        const newDate = new Date(baseDate);
-        if (direction === 'after') {
-            newDate.setMinutes(newDate.getMinutes() + interval);
-        } else {
-            newDate.setMinutes(newDate.getMinutes() - interval);
-        }
-
-        const newTime = String(newDate.getHours()).padStart(2, '0') + ':' + 
-                       String(newDate.getMinutes()).padStart(2, '0');
-
-        const existingTimes = Array.from(this.tableBody.querySelectorAll('.time-display'))
-            .map(td => td.textContent);
-        
-        if (existingTimes.includes(newTime)) {
-            this.showNotification('その時間は既に存在します', 'warning');
-            this.hideLoading();
-            return;
-        }
-
+        const timeInterval = parseInt(document.getElementById('time-interval').value);
+        const insertTimeSelect = document.getElementById('insert-time');
+        const insertTime = insertTimeSelect.value;
+        const insertPosition = document.querySelector('input[name="insert-position"]:checked').value;
         const characterCount = this.nameRow.querySelectorAll('.character-header').length;
-        this.addTimeRowDirect(newTime, characterCount);
-        this.updateTimeSelectOptions();
 
-        this.autoSave();
-        this.showNotification('時間行を追加しました', 'success');
-        this.hideLoading();
+        // 基準時間の設定
+        const [hours, minutes] = insertTime.split(':').map(Number);
+        const baseTime = new Date();
+        baseTime.setHours(hours, minutes, 0, 0);
+
+        // 追加する時間の計算
+        const targetTime = new Date(baseTime);
+        if (insertPosition === 'before') {
+            targetTime.setMinutes(targetTime.getMinutes() - timeInterval);
+        } else {
+            targetTime.setMinutes(targetTime.getMinutes() + timeInterval);
+        }
+
+        // 重複チェック
+        const targetTimeString = targetTime.toTimeString().slice(0, 5);
+        const existingTimes = Array.from(this.tableBody.querySelectorAll('.time-display')).map(td => td.textContent);
+        if (existingTimes.includes(targetTimeString)) {
+            this.showNotification('追加しようとしている時間は既に存在します', 'warning');
+            insertTimeSelect.value = targetTimeString;
+            return;
+        }
+
+        // 挿入位置の行を探す
+        const rows = this.tableBody.querySelectorAll('tr');
+        let targetRow = null;
+        
+        for (let row of rows) {
+            const timeDisplay = row.querySelector('.time-display');
+            if (timeDisplay && timeDisplay.textContent.trim() === insertTime) {
+                targetRow = row;
+                break;
+            }
+        }
+
+        // 開始時間と終了時間の設定（1行だけ追加するように修正）
+        const startTime = targetTime;
+        const endTime = new Date(targetTime);
+        endTime.setMinutes(endTime.getMinutes() + 1); // 1行だけ追加するために1分後に設定
+
+        // Generate new rows
+        const newRows = [];
+        const currentTime = new Date(startTime);
+        
+        while (currentTime < endTime) {
+            const formattedTime = currentTime.toTimeString().slice(0, 5);
+            const newRow = this.createTimeRow(formattedTime, characterCount);
+            newRows.push(newRow);
+            currentTime.setMinutes(currentTime.getMinutes() + timeInterval);
+        }
+
+        // Insert rows with animation
+        newRows.forEach((row, index) => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(20px)';
+            
+            if (targetRow) {
+                if (insertPosition === 'before') {
+                    this.tableBody.insertBefore(row, targetRow);
+                } else {
+                    this.tableBody.insertBefore(row, targetRow.nextSibling);
+                }
+            } else {
+                this.tableBody.appendChild(row);
+            }
+
+            // Animate in with stagger
+            setTimeout(() => {
+                row.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+                row.classList.add('fade-in');
+
+                // 最後の行が挿入された後、挿入時間を更新
+                if (index === newRows.length - 1) {
+                    const lastTime = row.querySelector('.time-display').textContent;
+                    const insertTimeInput = document.getElementById('insert-time');
+                    if (insertTimeInput) {
+                        insertTimeInput.value = lastTime;
+                    }
+                }
+            }, index * 100);
+        });
+
+        if (newRows.length > 0) {
+            this.updateTimeSelectOptions(); // セレクトボックスの更新
+            this.showNotification(`${newRows.length}行の時間を追加しました`, 'success');
+            this.autoSave();
+        } else {
+            this.showNotification('追加する時間がありません', 'info');
+        }
     }
 
+    // Add time row directly (for restoring from data)
     addTimeRowDirect(time, characterCount) {
-        const newRow = document.createElement('tr');
-        newRow.className = 'table-row';
+        const newRow = this.createTimeRow(time, characterCount);
+        this.tableBody.appendChild(newRow);
+    }
 
+    // Create a new time row
+    createTimeRow(time, characterCount) {
+        const row = document.createElement('tr');
+        row.className = 'table-row';
+
+        // Time cell
         const timeCell = document.createElement('td');
         timeCell.className = 'time-cell';
         timeCell.innerHTML = `
             <div class="time-cell-content">
+                <input type="checkbox" class="time-delete-checkbox">
                 <span class="time-display">${time}</span>
-                <button class="move-btn move-left" title="上に移動">↑</button>
-                <button class="move-btn move-right" title="下に移動">↓</button>
-                <input type="checkbox" class="delete-checkbox">
             </div>
         `;
-        newRow.appendChild(timeCell);
+        row.appendChild(timeCell);
 
+        // Activity cells
         for (let i = 0; i < characterCount; i++) {
             const activityCell = document.createElement('td');
             activityCell.className = 'activity-cell';
-            activityCell.contentEditable = true;
-            // プレースホルダーは設定しない
-            newRow.appendChild(activityCell);
+            activityCell.contentEditable = 'true';
+            row.appendChild(activityCell);
         }
 
-        this.tableBody.appendChild(newRow);
+        return row;
     }
 
+    // Remove selected time rows
     removeTimeRows() {
-        const checkboxes = this.tableBody.querySelectorAll('.delete-checkbox:checked');
-        if (checkboxes.length === 0) {
+        const checkboxes = this.tableBody.querySelectorAll('.time-delete-checkbox:checked');
+        const rowsToDelete = Array.from(checkboxes).map(cb => cb.closest('tr'));
+
+        if (rowsToDelete.length === 0) {
             this.showNotification('削除する時間行を選択してください', 'warning');
-            this.hideLoading();
             return;
         }
 
-        checkboxes.forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            if (row) row.remove();
+        const totalRows = this.tableBody.querySelectorAll('tr').length;
+        if (totalRows - rowsToDelete.length < 1) {
+            this.showNotification('最後の時間行は削除できません。', 'warning');
+            checkboxes.forEach(cb => cb.checked = false);
+            return;
+        }
+
+        // Animate out rows
+        rowsToDelete.forEach((row, index) => {
+            setTimeout(() => {
+                row.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(-100%)';
+            }, index * 50);
         });
 
-        this.updateTimeSelectOptions();
-        this.autoSave();
-        this.showNotification(`${checkboxes.length}行を削除しました`, 'success');
-        this.hideLoading();
+        // Remove rows after animation
+        setTimeout(() => {
+            rowsToDelete.forEach(row => {
+                row.remove();
+            });
+            
+            this.updateTimeSelectOptions(); // Update the dropdown
+
+            this.showNotification(`${rowsToDelete.length}行を削除しました`, 'success');
+            this.autoSave();
+        }, 300 + (rowsToDelete.length * 50));
     }
 
     showNotification(message, type = 'info') {

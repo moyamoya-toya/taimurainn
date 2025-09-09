@@ -15,68 +15,49 @@
         <div class="control-panel">
             <!-- Character and Data Controls -->
             <div class="control-group">
-                <h3 class="control-title">登場人物管理</h3>
+                <h3 class="control-title">人物管理</h3>
                 <div class="button-group">
                     <button id="addButton" class="btn btn--primary">
                         <span class="btn-icon">+</span>
-                        登場人物を追加
+                        追加
                     </button>
                     <button id="removeButton" class="btn btn--secondary">
                         <span class="btn-icon">-</span>
-                        登場人物を削除
+                        削除
                     </button>
                     <button id="resetButton" class="btn btn--warning">
                         <span class="btn-icon">⚠️</span>
                         リセット
                     </button>
                 </div>
-                <p class="reset-description">全てのデータを初期状態に戻します</p>
+                
             </div>
 
             <!-- Time Controls -->
-            <div class="control-group">
-                <h3 class="control-title">時間管理</h3>
-                <div class="time-controls">
-                    <div class="time-input-row">
-                        <div class="form-group">
-                            <label for="time-interval" class="form-label">時間間隔:</label>
-                            <select id="time-interval" class="form-control time-select">
-                                <option value="5">5分</option>
-                                <option value="10">10分</option>
-                                <option value="30">30分</option>
-                                <option value="60">1時間</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="insert-time" class="form-label">挿入位置:</label>
-                            <select id="insert-time" class="form-control time-select">
-                                <option value="08:00">08:00</option>
-                                <option value="09:00">09:00</option>
-                                <option value="10:00">10:00</option>
-                                <option value="11:00">11:00</option>
-                                <option value="12:00">12:00</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">挿入方向:</label>
-                            <div class="radio-group">
-                                <input type="radio" id="insert-after" name="insert-position" value="after" checked>
-                                <label for="insert-after">後</label>
-                                <input type="radio" id="insert-before" name="insert-position" value="before">
-                                <label for="insert-before">前</label>
-                            </div>
-                        </div>
+            <div class="control-group" id="time-control-group">
+                <div class="time-controls-simplified">
+                    <select id="time-interval" class="form-control" title="時間間隔">
+                        <option value="5">5分</option>
+                        <option value="10">10分</option>
+                        <option value="30">30分</option>
+                        <option value="60">1時間</option>
+                    </select>
+                    <select id="insert-time" class="form-control" title="基準時間">
+                    </select>
+                    <div class="radio-group" title="挿入方向">
+                        <input type="radio" id="insert-before" name="insert-position" value="before">
+                        <label for="insert-before">前</label>
+                        <input type="radio" id="insert-after" name="insert-position" value="after" checked>
+                        <label for="insert-after">後</label>
                     </div>
-                    <div class="button-group">
-                        <button id="addTimeButton" class="btn btn--accent">
-                            <span class="btn-icon">⏰</span>
-                            時間行を追加
-                        </button>
-                        <button id="removeTimeButton" class="btn btn--danger">
-                            <span class="btn-icon">🗑</span>
-                            時間行を削除
-                        </button>
-                    </div>
+                    <button id="addTimeButton" class="btn btn--accent">
+                        <span class="btn-icon">⏰</span>
+                        追加
+                    </button>
+                    <button id="removeTimeButton" class="btn btn--danger">
+                        <span class="btn-icon">🗑</span>
+                        選択行を削除
+                    </button>
                 </div>
             </div>
 
@@ -92,7 +73,7 @@
                             <th class="time-header" rowspan="2">時間</th>
                             <th class="character-header">
                                 <div class="character-name-row">
-                                    <input type="text" class="character-name-input" value="登場人物A">
+                                    <input type="text" class="character-name-input" value="人物A">
                                 </div>
                                 <div class="character-controls-row">
                                     <button class="move-btn move-left">←</button>
@@ -102,7 +83,7 @@
                             </th>
                             <th class="character-header">
                                 <div class="character-name-row">
-                                    <input type="text" class="character-name-input" value="登場人物B">
+                                    <input type="text" class="character-name-input" value="人物B">
                                 </div>
                                 <div class="character-controls-row">
                                     <button class="move-btn move-left">←</button>
@@ -112,7 +93,7 @@
                             </th>
                             <th class="character-header">
                                 <div class="character-name-row">
-                                    <input type="text" class="character-name-input" value="登場人物C">
+                                    <input type="text" class="character-name-input" value="人物C">
                                 </div>
                                 <div class="character-controls-row">
                                     <button class="move-btn move-left">←</button>
@@ -142,9 +123,9 @@
                                     <span class="time-display">08:00</span>
                                 </div>
                             </td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
                         </tr>
                         <tr class="table-row">
                             <td class="time-cell">
@@ -153,9 +134,9 @@
                                     <span class="time-display">09:00</span>
                                 </div>
                             </td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
                         </tr>
                         <tr class="table-row">
                             <td class="time-cell">
@@ -164,9 +145,9 @@
                                     <span class="time-display">10:00</span>
                                 </div>
                             </td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
                         </tr>
                         <tr class="table-row">
                             <td class="time-cell">
@@ -175,9 +156,9 @@
                                     <span class="time-display">11:00</span>
                                 </div>
                             </td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
                         </tr>
                         <tr class="table-row">
                             <td class="time-cell">
@@ -186,9 +167,9 @@
                                     <span class="time-display">12:00</span>
                                 </div>
                             </td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
-                            <td class="activity-cell" contenteditable="true" data-placeholder="活動を記入..."></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
+                            <td class="activity-cell" contenteditable="true"></td>
                         </tr>
                     </tbody>
                 </table>

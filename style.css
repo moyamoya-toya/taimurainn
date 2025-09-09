@@ -241,7 +241,7 @@
   --color-info: var(--color-gray-300);
   --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
   --color-btn-primary-text: var(--color-slate-900);
-  --color-card-border: rgba(var(--color-gray-400-rgb), 0.15);
+  --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
   --color-card-border-inner: rgba(var(--color-gray-400-rgb), 0.15);
   --shadow-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.15);
@@ -818,7 +818,6 @@ body {
   background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-secondary-dark) 100%);
   color: var(--color-text-light);
   min-height: 100vh;
-  overflow-x: hidden;
 }
 
 body::before {
@@ -836,9 +835,8 @@ body::before {
 }
 
 .app-container {
-  max-width: 1400px;
   margin: 0 auto;
-  padding: var(--space-lg);
+  padding: 0;
 }
 
 /* Header Styles */
@@ -907,10 +905,31 @@ body::before {
   flex-wrap: wrap;
 }
 
-.time-controls {
+
+.time-controls-simplified {
   display: flex;
-  flex-direction: column;
   gap: var(--space-md);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.time-controls-simplified .form-group {
+    margin-bottom: 0;
+}
+
+.time-controls-simplified .radio-group {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.time-controls-simplified .radio-group label {
+    margin-bottom: 0;
+}
+
+.time-controls-simplified select.form-control {
+  width: auto; /* Allow select elements to take natural width */
+  min-width: unset; /* Remove min-width constraint */
 }
 
 .form-group {
@@ -1193,7 +1212,7 @@ select.form-control option {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-xl);
-  padding: var(--space-lg);
+  padding: 0; /* Changed from var(--space-lg) */
   box-shadow: var(--shadow-medium);
   backdrop-filter: blur(10px);
 }
@@ -1211,20 +1230,22 @@ select.form-control option {
   border-collapse: separate;
   border-spacing: 0;
   background: rgba(255, 255, 255, 0.02);
+  table-layout: fixed;
 }
 
 /* Sticky Header Rows - Both rows sticky */
 .timetable thead tr {
   position: sticky;
-  z-index: 10;
 }
 
 .name-row {
   top: 0;
+  z-index: 11;
 }
 
 .memo-row {
   top: 60px; /* Height of name row */
+  z-index: 10;
 }
 
 .name-row,
@@ -1252,7 +1273,7 @@ select.form-control option {
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--color-accent-gold);
-  min-width: 120px;
+  min-width: 120px; /* Reverted to 120px */
   border-right: 1px solid var(--color-border-subtle);
   box-shadow: 1px 0 0 0 var(--color-border-subtle);
 }
@@ -1267,7 +1288,7 @@ select.form-control option {
   background: var(--color-primary-dark) !important;
   border-right: 1px solid var(--color-border-subtle);
   position: relative;
-  min-width: 120px;
+  min-width: 150px; /* Set a min-width for character columns */
   max-width: 150px;
 }
 
@@ -1310,9 +1331,13 @@ select.form-control option {
 /* Character Memo Headers */
 .character-memo-header {
   padding: 4px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-accent-gold);
   background: var(--color-primary-dark) !important;
   border-right: 1px solid var(--color-border-subtle);
-  min-width: 120px;
+  min-width: 150px; /* Set a min-width for character memo columns */
   max-width: 150px;
 }
 
@@ -1366,7 +1391,7 @@ select.form-control option {
   padding: var(--space-md);
   border-right: 1px solid var(--color-border-subtle);
   border-bottom: 1px solid var(--color-border-subtle);
-  min-width: 120px;
+  min-width: 120px; /* Reverted to 120px */
   box-shadow: 1px 0 0 0 var(--color-border-subtle);
 }
 
@@ -1375,6 +1400,8 @@ select.form-control option {
   align-items: center;
   gap: var(--space-sm);
   justify-content: center;
+  height: 100%;
+  
 }
 
 .time-display {
@@ -1389,7 +1416,161 @@ select.form-control option {
   border-right: 1px solid var(--color-border-subtle);
   border-bottom: 1px solid var(--color-border-subtle);
   min-height: 60px;
-  min-width: 120px;
+  min-width: 150px; /* Set a min-width for activity cells */
+  vertical-align: top;
+  position: relative;
+  transition: var(--transition-fast);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.activity-cell:focus {
+  outline: none;
+  background: rgba(255, 215, 0, 0.1) !important;
+  box-shadow: inset 0 0 0 2px rgba(255, 215, 0, 0.3);
+}
+
+.activity-cell:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.875rem;
+}
+
+/* Character Header Cells - Top Sticky with 2-row layout */
+.character-header {
+  padding: 4px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-accent-gold);
+  background: var(--color-primary-dark) !important;
+  border-right: 1px solid var(--color-border-subtle);
+  position: relative;
+  min-width: unset; /* Changed from 120px */
+  max-width: 150px;
+}
+
+.character-name-row {
+  margin-bottom: 4px;
+}
+
+.character-name-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  color: var(--color-text-light);
+  font-family: var(--font-body);
+  font-size: 12px;
+  text-align: center;
+  transition: var(--transition-fast);
+}
+
+.character-name-input:focus {
+  outline: none;
+  border-color: var(--color-accent-gold);
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.character-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.delete-checkbox {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* Character Memo Headers */
+.character-memo-header {
+  padding: 4px;
+  background: var(--color-primary-dark) !important;
+  border-right: 1px solid var(--color-border-subtle);
+  min-width: unset; /* Changed from 120px */
+  max-width: 150px;
+}
+
+.character-memo-textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  color: var(--color-text-light);
+  font-family: var(--font-body);
+  font-size: 11px;
+  resize: none;
+  transition: var(--transition-fast);
+}
+
+.character-memo-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent-gold);
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.character-memo-textarea::placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.table-row {
+  transition: var(--transition-fast);
+}
+
+.table-row:hover {
+  background: rgba(255, 215, 0, 0.05);
+}
+
+.table-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.table-row:nth-child(even):hover {
+  background: rgba(255, 215, 0, 0.08);
+}
+
+/* Time Cells - Left Sticky Column */
+.time-cell {
+  position: sticky;
+  left: 0;
+  z-index: 11;
+  background: var(--color-primary-dark) !important;
+  padding: var(--space-md);
+  border-right: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
+  min-width: unset; /* Changed from 120px */
+  box-shadow: 1px 0 0 0 var(--color-border-subtle);
+}
+
+.time-cell-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  justify-content: center;
+  height: 100%;
+  
+}
+
+.time-display {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-accent-gold);
+}
+
+.activity-cell {
+  padding: var(--space-md);
+  border-right: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
+  min-height: 60px;
+  min-width: unset; /* Changed from 120px */
   vertical-align: top;
   position: relative;
   transition: var(--transition-fast);
@@ -1438,6 +1619,7 @@ input[type="checkbox"]:checked::after {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  display: block;
   color: var(--color-primary-dark);
   font-size: 12px;
   font-weight: bold;
@@ -1484,7 +1666,7 @@ input[type="checkbox"]:checked::after {
 /* Responsive Design */
 @media (max-width: 768px) {
   .app-container {
-    padding: var(--space-md);
+    padding: 0;
   }
   
   .app-title {
@@ -1494,17 +1676,24 @@ input[type="checkbox"]:checked::after {
   .control-panel {
     grid-template-columns: 1fr;
   }
-  
-  .button-group {
-    flex-direction: column;
+
+  .control-group {
+    padding: var(--space-md);
+  }
+
+  .control-title {
+    font-size: 1.1rem;
+    margin-bottom: var(--space-md);
+  }
+
+  /* Allow character buttons to wrap and stay centered */
+  .control-group > .button-group {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   
   .btn {
     justify-content: center;
-  }
-  
-  .time-controls {
-    gap: var(--space-md);
   }
   
   .table-wrapper {
