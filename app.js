@@ -1,240 +1,23 @@
-// Detective Novel Timetable - Modern JavaScript Implementation with localStorage
-class DetectiveTimetableStorage {
-    constructor() {
-        this.storageKey = 'detectiveTimetableData';
-        this.isLocalStorageAvailable = this.checkLocalStorage();
-        this.defaultData = {
-            characters: ["登場人物A", "登場人物B", "登場人物C"],
-            timeRows: ["08:00", "09:00", "10:00", "11:00", "12:00"],
-            cellData: {},
-            lastSaved: null
-        };
-    }
-
-    checkLocalStorage() {
-        try {
-            const test = '__localStorage_test__';
-            localStorage.setItem(test, test);
-            localStorage.removeItem(test);
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    saveData(data) {
-        if (this.isLocalStorageAvailable) {
-            try {
-                const saveData = { ...data, lastSaved: new Date().toISOString() };
-                localStorage.setItem(this.storageKey, JSON.stringify(saveData));
-                return true;
-            } catch (error) {
-                console.error('LocalStorage save failed:', error);
-            }
-        }
-        // Fallback to in-memory for demo
-        this.memoryStorage = { ...data, lastSaved: new Date().toISOString() };
-        return true;
-    }
-
-    loadData() {
-        if (this.isLocalStorageAvailable) {
-            try {
-                const saved = localStorage.getItem(this.storageKey);
-                if (saved) return JSON.parse(saved);
-            } catch (error) {
-                console.error('LocalStorage load failed:', error);
-            }
-        }
-        return this.memoryStorage || this.defaultData;
-    }
-
-    clearData() {
-        if (this.isLocalStorageAvailable) {
-            try {
-                localStorage.removeItem(this.storageKey);
-            } catch (error) {
-                console.error('LocalStorage clear failed:', error);
-            }
-        }
-        this.memoryStorage = null;
-    }
-}
-
+// Detective Novel Timetable - Enhanced JavaScript Implementation
 class DetectiveTimetable {
     constructor() {
-        this.storage = new DetectiveTimetableStorage();
         this.loadingOverlay = document.getElementById('loadingOverlay');
         this.table = document.querySelector('.timetable');
         this.headerRow = this.table.querySelector('thead tr');
         this.tableBody = this.table.querySelector('tbody');
-        this.resetModal = document.getElementById('resetModal');
-        this.timeInsertDropdown = document.getElementById('insert-before-time');
+        this.insertTimeSelect = document.getElementById('insert-time-select');
+        this.storageKey = 'detectiveTimetableData';
         
         this.init();
     }
 
     init() {
-        this.loadSavedData();
+        this.loadData();
+        this.updateTimeSelect();
         this.setupEventListeners();
         this.setupCharacterInputListeners();
         this.setupAutoSave();
         this.addInitialAnimations();
-        
-        // Update dropdown after initial setup
-        setTimeout(() => {
-            this.updateTimeInsertDropdown();
-        }, 100);
-    }
-
-    // Load saved data from localStorage
-    loadSavedData() {
-        const data = this.storage.loadData();
-        if (data.lastSaved) {
-            this.restoreTableFromData(data);
-        } else {
-            // If no saved data, ensure dropdown is populated with default times
-            setTimeout(() => {
-                this.updateTimeInsertDropdown();
-            }, 50);
-        }
-    }
-
-    // Restore table from saved data
-    restoreTableFromData(data) {
-        // Clear existing table
-        this.headerRow.innerHTML = '<th class="time-header">時間</th>';
-        this.tableBody.innerHTML = '';
-
-        // Restore characters
-        data.characters.forEach((character, index) => {
-            const headerCell = document.createElement('th');
-            headerCell.className = 'character-header';
-            headerCell.innerHTML = `
-                <div class="character-cell">
-                    <input type="text" value="${character}" class="character-input">
-                    <input type="checkbox" class="delete-checkbox">
-                </div>
-            `;
-            this.headerRow.appendChild(headerCell);
-        });
-
-        // Restore time rows
-        data.timeRows.forEach(time => {
-            const row = this.createTimeRow(time, data.characters.length);
-            this.tableBody.appendChild(row);
-        });
-
-        // Restore cell data
-        Object.keys(data.cellData).forEach(key => {
-            const [timeIndex, charIndex] = key.split('-').map(Number);
-            const row = this.tableBody.children[timeIndex];
-            if (row && row.children[charIndex + 1]) {
-                row.children[charIndex + 1].textContent = data.cellData[key];
-            }
-        });
-
-        // Setup listeners for restored elements
-        this.setupCharacterInputListeners();
-        this.setupActivityCellListeners();
-        
-        // Update dropdown after restoring data
-        setTimeout(() => {
-            this.updateTimeInsertDropdown();
-        }, 100);
-    }
-
-    // Save current table state
-    saveCurrentState() {
-        const data = {
-            characters: this.getCurrentCharacters(),
-            timeRows: this.getCurrentTimeRows(),
-            cellData: this.getCurrentCellData(),
-            lastSaved: new Date().toISOString()
-        };
-        this.storage.saveData(data);
-    }
-
-    // Get current characters
-    getCurrentCharacters() {
-        const inputs = this.headerRow.querySelectorAll('.character-input');
-        return Array.from(inputs).map(input => input.value);
-    }
-
-    // Get current time rows
-    getCurrentTimeRows() {
-        const timeDisplays = this.tableBody.querySelectorAll('.time-display');
-        return Array.from(timeDisplays).map(display => display.textContent);
-    }
-
-    // Get current cell data
-    getCurrentCellData() {
-        const cellData = {};
-        const rows = this.tableBody.querySelectorAll('tr');
-        rows.forEach((row, timeIndex) => {
-            const activityCells = row.querySelectorAll('.activity-cell');
-            activityCells.forEach((cell, charIndex) => {
-                if (cell.textContent.trim()) {
-                    cellData[`${timeIndex}-${charIndex}`] = cell.textContent.trim();
-                }
-            });
-        });
-        return cellData;
-    }
-
-    // Setup auto-save
-    setupAutoSave() {
-        const autoSave = () => {
-            this.saveCurrentState();
-        };
-
-        // Save on character name changes
-        document.addEventListener('input', (e) => {
-            if (e.target.classList.contains('character-input') || 
-                e.target.classList.contains('activity-cell')) {
-                autoSave();
-            }
-        });
-
-        // Save every 30 seconds
-        setInterval(autoSave, 30000);
-    }
-
-    // Update time insertion dropdown
-    updateTimeInsertDropdown() {
-        if (!this.timeInsertDropdown) {
-            console.error('Time insert dropdown not found');
-            return;
-        }
-
-        const currentTimes = this.getCurrentTimeRows();
-        
-        // Clear existing options
-        this.timeInsertDropdown.innerHTML = '';
-        
-        // Add "最後に追加" as first option
-        const endOption = document.createElement('option');
-        endOption.value = 'end';
-        endOption.textContent = '最後に追加';
-        this.timeInsertDropdown.appendChild(endOption);
-        
-        // Add current times as options (sorted)
-        const sortedTimes = currentTimes.sort((a, b) => {
-            const [aHours, aMinutes] = a.split(':').map(Number);
-            const [bHours, bMinutes] = b.split(':').map(Number);
-            const aTotal = aHours * 60 + aMinutes;
-            const bTotal = bHours * 60 + bMinutes;
-            return aTotal - bTotal;
-        });
-
-        sortedTimes.forEach(time => {
-            const option = document.createElement('option');
-            option.value = time;
-            option.textContent = time;
-            this.timeInsertDropdown.appendChild(option);
-        });
-
-        console.log(`Updated dropdown with ${this.timeInsertDropdown.options.length} options`);
     }
 
     // Show loading overlay with animation
@@ -263,6 +46,33 @@ class DetectiveTimetable {
         });
     }
 
+    // Update the time select dropdown with existing times
+    updateTimeSelect() {
+        const times = [];
+        const timeDisplays = this.tableBody.querySelectorAll('.time-display');
+        
+        timeDisplays.forEach(display => {
+            times.push(display.textContent.trim());
+        });
+
+        // Clear existing options
+        this.insertTimeSelect.innerHTML = '';
+        
+        // Always add "最後に追加" as first option
+        const lastOption = document.createElement('option');
+        lastOption.value = 'last';
+        lastOption.textContent = '最後に追加';
+        this.insertTimeSelect.appendChild(lastOption);
+        
+        // Add existing times as options
+        times.forEach(time => {
+            const option = document.createElement('option');
+            option.value = time;
+            option.textContent = time;
+            this.insertTimeSelect.appendChild(option);
+        });
+    }
+
     // Setup all event listeners
     setupEventListeners() {
         // Character management buttons
@@ -287,49 +97,151 @@ class DetectiveTimetable {
             setTimeout(() => this.removeTimeRows(), 300);
         });
 
-        // Reset button
-        document.getElementById('resetButton').addEventListener('click', () => {
-            this.showResetModal();
-        });
-
-        // Reset modal buttons
-        document.getElementById('confirmReset').addEventListener('click', () => {
-            this.confirmReset();
-        });
-
-        document.getElementById('cancelReset').addEventListener('click', () => {
-            this.hideResetModal();
-        });
-
-        // Modal backdrop click to close
-        this.resetModal.querySelector('.modal-backdrop').addEventListener('click', () => {
-            this.hideResetModal();
-        });
-
         // Add hover effects to buttons
         this.addButtonHoverEffects();
     }
 
-    // Show reset confirmation modal
-    showResetModal() {
-        this.resetModal.classList.remove('hidden');
+    // Setup auto-save functionality
+    setupAutoSave() {
+        // Save data when content changes
+        this.table.addEventListener('input', () => {
+            clearTimeout(this.saveTimeout);
+            this.saveTimeout = setTimeout(() => this.saveData(), 1000);
+        });
+
+        // Save data when checkboxes change
+        this.table.addEventListener('change', () => {
+            this.saveData();
+        });
     }
 
-    // Hide reset confirmation modal
-    hideResetModal() {
-        this.resetModal.classList.add('hidden');
+    // Save data to localStorage
+    saveData() {
+        try {
+            const data = {
+                characters: [],
+                rows: [],
+                timestamp: Date.now()
+            };
+
+            // Save character names
+            const characterInputs = this.headerRow.querySelectorAll('.character-input');
+            characterInputs.forEach(input => {
+                data.characters.push(input.value);
+            });
+
+            // Save row data
+            const tableRows = this.tableBody.querySelectorAll('.table-row');
+            tableRows.forEach(row => {
+                const timeDisplay = row.querySelector('.time-display');
+                const activityCells = row.querySelectorAll('.activity-cell');
+                
+                const rowData = {
+                    time: timeDisplay.textContent.trim(),
+                    activities: []
+                };
+
+                activityCells.forEach(cell => {
+                    rowData.activities.push(cell.textContent);
+                });
+
+                data.rows.push(rowData);
+            });
+
+            localStorage.setItem(this.storageKey, JSON.stringify(data));
+        } catch (error) {
+            console.warn('データの保存に失敗しました:', error);
+        }
     }
 
-    // Confirm reset and clear all data
-    confirmReset() {
-        this.storage.clearData();
-        this.hideResetModal();
-        this.showLoading();
-        
-        setTimeout(() => {
-            // Reset to default state
-            location.reload();
-        }, 800);
+    // Load data from localStorage
+    loadData() {
+        try {
+            const savedData = localStorage.getItem(this.storageKey);
+            if (!savedData) return;
+
+            const data = JSON.parse(savedData);
+            
+            // Restore characters
+            if (data.characters && data.characters.length > 0) {
+                this.restoreCharacters(data.characters);
+            }
+
+            // Restore rows
+            if (data.rows && data.rows.length > 0) {
+                this.restoreRows(data.rows);
+            }
+
+        } catch (error) {
+            console.warn('データの読み込みに失敗しました:', error);
+        }
+    }
+
+    // Restore character columns
+    restoreCharacters(characters) {
+        // Clear existing character columns
+        const existingHeaders = this.headerRow.querySelectorAll('.character-header');
+        existingHeaders.forEach(header => header.remove());
+
+        // Add character columns
+        characters.forEach(characterName => {
+            const newHeader = document.createElement('th');
+            newHeader.className = 'character-header';
+            newHeader.innerHTML = `
+                <div class="character-cell">
+                    <input type="text" value="${characterName}" class="character-input">
+                    <input type="checkbox" class="delete-checkbox">
+                </div>
+            `;
+            this.headerRow.appendChild(newHeader);
+
+            // Setup listener for character input
+            const input = newHeader.querySelector('.character-input');
+            this.addCharacterInputListener(input);
+        });
+    }
+
+    // Restore table rows
+    restoreRows(rows) {
+        // Clear existing rows
+        this.tableBody.innerHTML = '';
+
+        // Add restored rows
+        rows.forEach(rowData => {
+            const row = this.createTimeRowWithData(rowData.time, rowData.activities);
+            this.tableBody.appendChild(row);
+        });
+    }
+
+    // Create a time row with existing data
+    createTimeRowWithData(time, activities) {
+        const row = document.createElement('tr');
+        row.className = 'table-row';
+
+        // Time cell
+        const timeCell = document.createElement('td');
+        timeCell.className = 'time-cell';
+        timeCell.innerHTML = `
+            <div class="time-cell-content">
+                <input type="checkbox" class="time-delete-checkbox">
+                <span class="time-display">${time}</span>
+            </div>
+        `;
+        row.appendChild(timeCell);
+
+        // Activity cells with data
+        activities.forEach(activity => {
+            const activityCell = document.createElement('td');
+            activityCell.className = 'activity-cell';
+            activityCell.contentEditable = 'true';
+            activityCell.setAttribute('data-placeholder', '活動を記入...');
+            activityCell.textContent = activity;
+            row.appendChild(activityCell);
+            
+            this.addCellFocusEffects(activityCell);
+        });
+
+        return row;
     }
 
     // Add hover effects to buttons
@@ -354,21 +266,13 @@ class DetectiveTimetable {
         });
     }
 
-    // Setup activity cell listeners
-    setupActivityCellListeners() {
-        const activityCells = document.querySelectorAll('.activity-cell');
-        activityCells.forEach(cell => {
-            this.addCellFocusEffects(cell);
-        });
-    }
-
     // Add event listener to character input for real-time updates
     addCharacterInputListener(input) {
-        input.addEventListener('input', () => {
+        input.addEventListener('input', function() {
             // Visual feedback on input
-            input.style.transform = 'scale(1.02)';
+            this.style.transform = 'scale(1.02)';
             setTimeout(() => {
-                input.style.transform = 'scale(1)';
+                this.style.transform = 'scale(1)';
             }, 150);
         });
 
@@ -383,6 +287,8 @@ class DetectiveTimetable {
 
     // Add new character column
     addCharacter() {
+        const characterCount = this.headerRow.children.length - 1; // Exclude time column
+        
         // Create new header cell
         const newHeader = document.createElement('th');
         newHeader.className = 'character-header';
@@ -437,6 +343,9 @@ class DetectiveTimetable {
             newInput.focus();
             newInput.select();
         }, 400);
+
+        // Save data and update time select
+        this.saveData();
     }
 
     // Remove selected character columns
@@ -490,76 +399,186 @@ class DetectiveTimetable {
             });
             
             this.showNotification('登場人物を削除しました', 'success');
+            this.saveData();
         }, 300);
     }
 
-    // Add new time rows
+    // Add new time rows with before/after insertion logic
     addTimeRows() {
         const timeInterval = parseInt(document.getElementById('time-interval').value);
-        const insertBeforeTime = document.getElementById('insert-before-time').value;
+        const selectedTime = this.insertTimeSelect.value;
+        const insertPosition = document.querySelector('input[name="insertPosition"]:checked').value;
         const characterCount = this.headerRow.children.length - 1;
 
+        console.log('Adding time rows:', { timeInterval, selectedTime, insertPosition, characterCount });
+
+        // If "最後に追加" is selected, always add at the end
+        if (selectedTime === 'last') {
+            this.addRowsAtEnd(timeInterval, characterCount);
+            return;
+        }
+
+        // Find the target row
+        const rows = Array.from(this.tableBody.querySelectorAll('tr'));
+        let targetRowIndex = -1;
+        
+        for (let i = 0; i < rows.length; i++) {
+            const timeDisplay = rows[i].querySelector('.time-display');
+            if (timeDisplay && timeDisplay.textContent.trim() === selectedTime) {
+                targetRowIndex = i;
+                break;
+            }
+        }
+
+        if (targetRowIndex === -1) {
+            this.showNotification('指定された時間が見つかりません', 'warning');
+            return;
+        }
+
+        console.log('Target row index:', targetRowIndex);
+
+        // Calculate insertion point and time range
         let insertBeforeRow = null;
-        
-        // If not "end", find the insertion point
-        if (insertBeforeTime !== 'end') {
-            const rows = this.tableBody.querySelectorAll('tr');
-            for (let row of rows) {
-                const timeDisplay = row.querySelector('.time-display');
-                if (timeDisplay && timeDisplay.textContent.trim() === insertBeforeTime) {
-                    insertBeforeRow = row;
-                    break;
-                }
-            }
-        }
+        let startTime = null;
+        let endTime = null;
+        const numRowsToAdd = 2; // Add 2 rows
 
-        // Calculate new time
-        let newTime;
-        if (insertBeforeRow) {
+        if (insertPosition === 'before') {
             // Insert before selected time
-            const [hours, minutes] = insertBeforeTime.split(':').map(Number);
-            const targetTime = new Date();
-            targetTime.setHours(hours, minutes - timeInterval, 0, 0);
-            newTime = targetTime.toTimeString().slice(0, 5);
-        } else {
-            // Add to end
-            const lastRow = this.tableBody.lastElementChild;
-            if (lastRow) {
-                const lastTimeDisplay = lastRow.querySelector('.time-display');
-                const [hours, minutes] = lastTimeDisplay.textContent.split(':').map(Number);
-                const targetTime = new Date();
-                targetTime.setHours(hours, minutes + timeInterval, 0, 0);
-                newTime = targetTime.toTimeString().slice(0, 5);
+            insertBeforeRow = rows[targetRowIndex];
+            endTime = this.parseTime(selectedTime);
+            
+            // Calculate start time based on previous time or interval
+            if (targetRowIndex > 0) {
+                const prevTime = rows[targetRowIndex - 1].querySelector('.time-display').textContent.trim();
+                startTime = this.parseTime(prevTime);
+                startTime.setMinutes(startTime.getMinutes() + timeInterval);
             } else {
-                newTime = '08:00';
+                startTime = new Date(endTime);
+                startTime.setMinutes(startTime.getMinutes() - (timeInterval * numRowsToAdd));
+            }
+        } else {
+            // Insert after selected time
+            startTime = this.parseTime(selectedTime);
+            startTime.setMinutes(startTime.getMinutes() + timeInterval);
+            
+            // Set insertion point
+            if (targetRowIndex < rows.length - 1) {
+                insertBeforeRow = rows[targetRowIndex + 1];
+                // Calculate end time based on next time
+                const nextTime = rows[targetRowIndex + 1].querySelector('.time-display').textContent.trim();
+                endTime = this.parseTime(nextTime);
+            } else {
+                insertBeforeRow = null; // Insert at end
+                endTime = new Date(startTime);
+                endTime.setMinutes(endTime.getMinutes() + (timeInterval * numRowsToAdd));
             }
         }
 
-        // Create and insert new row
-        const newRow = this.createTimeRow(newTime, characterCount);
-        newRow.style.opacity = '0';
-        newRow.style.transform = 'translateY(20px)';
+        console.log('Insert position:', insertPosition, 'Start time:', this.formatTime(startTime), 'End time:', this.formatTime(endTime));
+
+        // Generate and insert new rows
+        const newRows = [];
+        const currentTime = new Date(startTime);
+        let rowsGenerated = 0;
         
-        if (insertBeforeRow) {
-            this.tableBody.insertBefore(newRow, insertBeforeRow);
-        } else {
-            this.tableBody.appendChild(newRow);
+        while (currentTime < endTime && rowsGenerated < numRowsToAdd) {
+            const formattedTime = this.formatTime(currentTime);
+            
+            // Check if this time already exists
+            const existingTime = rows.find(row => {
+                const timeDisplay = row.querySelector('.time-display');
+                return timeDisplay && timeDisplay.textContent.trim() === formattedTime;
+            });
+            
+            if (!existingTime) {
+                const newRow = this.createTimeRow(formattedTime, characterCount);
+                newRows.push(newRow);
+                console.log('Generated row for time:', formattedTime);
+            }
+            
+            currentTime.setMinutes(currentTime.getMinutes() + timeInterval);
+            rowsGenerated++;
         }
 
-        // Animate in
-        setTimeout(() => {
-            newRow.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            newRow.style.opacity = '1';
-            newRow.style.transform = 'translateY(0)';
-            newRow.classList.add('fade-in');
-        }, 50);
+        // If no conflicts, insert the rows
+        if (newRows.length > 0) {
+            this.insertRowsWithAnimation(newRows, insertBeforeRow);
+            this.showNotification(`${newRows.length}行の時間を追加しました`, 'success');
+            this.updateTimeSelect();
+            this.saveData();
+        } else {
+            this.showNotification('追加できる時間がありません（重複または範囲外）', 'warning');
+        }
+    }
 
-        // Update dropdown with new times
-        setTimeout(() => {
-            this.updateTimeInsertDropdown();
-        }, 100);
+    // Add rows at the end of the table
+    addRowsAtEnd(timeInterval, characterCount) {
+        const rows = this.tableBody.querySelectorAll('tr');
+        let lastTime;
         
-        this.showNotification('時間行を追加しました', 'success');
+        if (rows.length > 0) {
+            const lastRow = rows[rows.length - 1];
+            const lastTimeDisplay = lastRow.querySelector('.time-display');
+            lastTime = this.parseTime(lastTimeDisplay.textContent.trim());
+        } else {
+            lastTime = this.parseTime('08:00');
+        }
+
+        console.log('Adding rows at end, starting from:', this.formatTime(lastTime));
+
+        // Generate 3 new rows after the last time
+        const newRows = [];
+        for (let i = 0; i < 3; i++) {
+            lastTime.setMinutes(lastTime.getMinutes() + timeInterval);
+            const formattedTime = this.formatTime(lastTime);
+            const newRow = this.createTimeRow(formattedTime, characterCount);
+            newRows.push(newRow);
+            console.log('Generated end row for time:', formattedTime);
+        }
+
+        this.insertRowsWithAnimation(newRows, null);
+        
+        this.showNotification(`${newRows.length}行の時間を追加しました`, 'success');
+        this.updateTimeSelect();
+        this.saveData();
+    }
+
+    // Insert rows with animation
+    insertRowsWithAnimation(newRows, insertBeforeRow) {
+        console.log('Inserting', newRows.length, 'rows', insertBeforeRow ? 'before existing row' : 'at end');
+        
+        newRows.forEach((row, index) => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(20px)';
+            
+            if (insertBeforeRow && insertBeforeRow.parentNode === this.tableBody) {
+                this.tableBody.insertBefore(row, insertBeforeRow);
+            } else {
+                this.tableBody.appendChild(row);
+            }
+
+            // Animate in with stagger
+            setTimeout(() => {
+                row.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+                row.classList.add('fade-in');
+            }, index * 100);
+        });
+    }
+
+    // Parse time string to Date object
+    parseTime(timeString) {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+    }
+
+    // Format Date object to time string
+    formatTime(date) {
+        return date.toTimeString().slice(0, 5);
     }
 
     // Create a new time row
@@ -643,11 +662,9 @@ class DetectiveTimetable {
             rowsToDelete.forEach(row => {
                 row.remove();
             });
-            // Update dropdown after removing rows
-            setTimeout(() => {
-                this.updateTimeInsertDropdown();
-            }, 50);
             this.showNotification(`${rowsToDelete.length}行を削除しました`, 'success');
+            this.updateTimeSelect();
+            this.saveData();
         }, 300 + (rowsToDelete.length * 50));
     }
 
@@ -712,6 +729,12 @@ class DetectiveTimetable {
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize the timetable
     const timetable = new DetectiveTimetable();
+
+    // Add enhanced interactions to existing elements
+    const activityCells = document.querySelectorAll('.activity-cell');
+    activityCells.forEach(cell => {
+        timetable.addCellFocusEffects(cell);
+    });
 
     // Add ripple effect to buttons
     const buttons = document.querySelectorAll('.btn');
@@ -778,5 +801,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    console.log('🕵️ Detective Novel Timetable initialized successfully with localStorage!');
+    console.log('🕵️ Detective Novel Timetable initialized successfully!');
 });
